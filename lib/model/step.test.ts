@@ -90,4 +90,30 @@ describe("stepSimulationDay", () => {
     expect(peak).toBeGreaterThan(infected[0] * 1.5);
     expect(infected[infected.length - 1]).toBeLessThan(peak * 0.2);
   });
+
+  it("keeps high isolation from crushing the infected peak", () => {
+    const baseline = runSimulation({
+      ...oneNodeScenario,
+      days: 80,
+      interventions: {
+        ...DEFAULT_INTERVENTIONS,
+        isolationCompliance: 0
+      }
+    });
+    const strongIsolation = runSimulation({
+      ...oneNodeScenario,
+      days: 80,
+      interventions: {
+        ...DEFAULT_INTERVENTIONS,
+        isolationCompliance: 0.95
+      }
+    });
+
+    const baselinePeak = Math.max(...baseline.map((day) => day.aggregate.I));
+    const isolationPeak = Math.max(
+      ...strongIsolation.map((day) => day.aggregate.I)
+    );
+
+    expect(isolationPeak).toBeGreaterThan(baselinePeak * 0.75);
+  });
 });

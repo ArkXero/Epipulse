@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { RotateCcw } from "lucide-react";
 import dynamic from "next/dynamic";
 import type { SimNode, SimulationDay } from "@/lib/model";
 import styles from "./dashboard.module.css";
@@ -25,13 +27,29 @@ export function MapPanel({
   selectedNodeId: string;
   onSelectNode: (nodeId: string) => void;
 }) {
+  const [resetSignal, setResetSignal] = useState(0);
+
   return (
-    <OutbreakMap
-      city={city}
-      nodes={nodes}
-      day={day}
-      selectedNodeId={selectedNodeId}
-      onSelectNode={onSelectNode}
-    />
+    <div className={styles.mapPanel}>
+      <div className={styles.mapToolbar}>
+        <button
+          type="button"
+          className={styles.mapResetButton}
+          aria-label="Reset map view"
+          onClick={() => setResetSignal((value) => value + 1)}
+        >
+          <RotateCcw size={16} strokeWidth={2} />
+          Reset map
+        </button>
+      </div>
+      <OutbreakMap
+        city={city}
+        nodes={nodes}
+        day={day}
+        selectedNodeId={selectedNodeId}
+        onSelectNode={onSelectNode}
+        resetSignal={resetSignal}
+      />
+    </div>
   );
 }

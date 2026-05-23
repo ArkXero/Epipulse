@@ -17,13 +17,15 @@ export function OutbreakMap({
   nodes,
   day,
   selectedNodeId,
-  onSelectNode
+  onSelectNode,
+  resetSignal
 }: {
   city: { name: string; lat: number; lng: number };
   nodes: SimNode[];
   day: SimulationDay;
   selectedNodeId: string;
   onSelectNode: (nodeId: string) => void;
+  resetSignal: number;
 }) {
   const maxInfected = Math.max(...day.nodes.map((node) => node.I), 1);
 
@@ -39,7 +41,7 @@ export function OutbreakMap({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <MapViewSync city={city} nodes={nodes} />
+        <MapViewSync city={city} nodes={nodes} resetSignal={resetSignal} />
         {nodes.map((node) => {
           const state = day.nodes.find((entry) => entry.nodeId === node.id);
           const infected = state?.I ?? 0;
@@ -79,10 +81,12 @@ export function OutbreakMap({
 
 function MapViewSync({
   city,
-  nodes
+  nodes,
+  resetSignal
 }: {
   city: { name: string; lat: number; lng: number };
   nodes: SimNode[];
+  resetSignal: number;
 }) {
   const map = useMap();
 
@@ -98,7 +102,7 @@ function MapViewSync({
       padding: [28, 28],
       maxZoom: 12
     });
-  }, [city.lat, city.lng, map, nodes]);
+  }, [city.lat, city.lng, map, nodes, resetSignal]);
 
   return null;
 }

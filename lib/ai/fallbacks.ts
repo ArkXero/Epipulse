@@ -15,7 +15,60 @@ export function fallbackScenario(
   const promptPresetKey = getPresetKeyForPrompt(prompt);
   const presetKey = promptPresetKey ?? fallbackPresetKey ?? "denver";
 
-  return applyPromptModifiers(structuredClone(presets[presetKey]), prompt);
+  if (!hasMeaningfulDiseasePrompt(prompt)) {
+    return createZeroOutbreakScenario(presetKey);
+  }
+
+  const baseline = structuredClone(presets[presetKey]);
+  return applyPromptModifiers(baseline, prompt);
+}
+
+export function hasMeaningfulDiseasePrompt(prompt: string): boolean {
+  const normalizedPrompt = prompt.toLowerCase().replace(/[^a-z0-9\s-]/g, " ");
+
+  if (!normalizedPrompt.trim()) {
+    return false;
+  }
+
+  if (hasExplicitNoOutbreakLanguage(normalizedPrompt)) {
+    return false;
+  }
+
+  return [
+    "outbreak",
+    "epidemic",
+    "surge",
+    "wave",
+    "spread",
+    "spreads",
+    "virus",
+    "viral",
+    "respiratory",
+    "flu",
+    "covid",
+    "corona",
+    "infection",
+    "infectious",
+    "transmission",
+    "contagious",
+    "virology",
+    "disease",
+    "quarantine",
+    "isolation",
+    "fever"
+  ].some((keyword) => normalizedPrompt.includes(keyword));
+}
+
+function hasExplicitNoOutbreakLanguage(prompt: string): boolean {
+  const negationPatterns = [
+    /\bno\b\s+(?:disease|virus|infection|outbreak|epidemic|surge|spread|wave|contagion)\b/i,
+    /\bwithout\b\s+(?:any\s+)?(?:disease|virus|infection|outbreak|epidemic|surge|spread|wave|contagion)\b/i,
+    /\bnot\b\s+(?:an\s+)?(?:disease|virus|infection|outbreak|epidemic|surge|spread|wave|contagion)\b/i,
+    /\bnever\b\s+(?:had|had an|saw|saw an|experienced)\s+(?:disease|virus|infection|outbreak|epidemic|surge|spread|wave|contagion)\b/i,
+    /\b(?:disease|virus|infection|outbreak|epidemic|surge|spread|wave|contagion)\b\s+(?:did not|didn't|never|was not|wasn't)\s+(?:occur|happen|spread|start)\b/i
+  ];
+
+  return negationPatterns.some((pattern) => pattern.test(prompt));
 }
 
 function applyPromptModifiers(
@@ -111,6 +164,17 @@ function applyPromptModifiers(
   );
 
   return scenario;
+}
+
+function createZeroOutbreakScenario(presetKey: PresetKey): ScenarioConfig {
+  const baseline = structuredClone(presets[presetKey]);
+
+  return {
+    ...baseline,
+    scenario: "No disease outbreak indicated",
+    seedCases: 0,
+    seedNodeId: baseline.nodes[0]?.id ?? baseline.seedNodeId
+  };
 }
 
 function getSeedTypeForPrompt(prompt: string): NodeType | null {
