@@ -330,7 +330,64 @@
 }
 
 .chartFrame {
-  height: 326px;
+  display: grid;
+  gap: 12px;
+}
+
+.chartToolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.chartZoomControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chartZoomHint {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.chartResetButton {
+  width: auto;
+  min-width: 72px;
+  padding-inline: 12px;
+  font-size: 0.85rem;
+}
+
+.mapPanel {
+  display: grid;
+  gap: 12px;
+}
+
+.mapToolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.mapResetButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  padding-inline: 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.mapResetButton:hover {
+  background: var(--panel-strong);
 }
 
 .mapFrame,

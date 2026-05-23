@@ -320,6 +320,9 @@ function MetricCell({
 
 function AggregateChart() {
   const timeline = useSimStore((state) => state.timeline);
+  const currentDay = useSimStore((state) => state.currentDay);
+  const [zoomWindow, setZoomWindow] = useState(timeline.length);
+
   const data = useMemo(
     () =>
       timeline.map((day) => ({
@@ -333,10 +336,84 @@ function AggregateChart() {
     [timeline]
   );
 
+  const visibleData = useMemo(() => {
+    const fullLength = data.length;
+
+    if (zoomWindow >= fullLength) {
+      return data;
+    }
+
+    const center = Math.max(0, Math.min(currentDay, fullLength - 1));
+    const halfWindow = Math.floor(zoomWindow / 2);
+    let start = center - halfWindow;
+    let end = start + zoomWindow - 1;
+
+    if (start < 0) {
+      start = 0;
+      end = zoomWindow - 1;
+    }
+
+    if (end >= fullLength) {
+      end = fullLength - 1;
+      start = Math.max(0, end - zoomWindow + 1);
+    }
+
+    return data.slice(start, end + 1);
+  }, [currentDay, data, zoomWindow]);
+
+  const minWindow = Math.max(6, Math.round(data.length * 0.12));
+
+  function zoomIn() {
+    setZoomWindow((previous) => Math.max(minWindow, Math.round(previous / 2)));
+  }
+
+  function zoomOut() {
+    setZoomWindow((previous) => Math.min(data.length, previous * 2));
+  }
+
+  function resetZoom() {
+    setZoomWindow(data.length);
+  }
+
   return (
     <div className={styles.chartFrame}>
-      <ResponsiveContainer width="100%" height={320}>
-        <AreaChart data={data} margin={{ top: 18, right: 12, left: 0, bottom: 0 }}>
+      <div className={styles.chartToolbar}>
+        <div>
+          <p className={styles.eyebrow}>Zoom</p>
+          <p className={styles.chartZoomHint}>Focus the timeline around the current day.</p>
+        </div>
+        <div className={styles.chartZoomControls}>
+          <button
+            type="button"
+            className={styles.iconButton}
+            aria-label="Zoom in on the graph"
+            onClick={zoomIn}
+          >
+            −
+          </button>
+          <button
+            type="button"
+            className={styles.iconButton}
+            aria-label="Zoom out on the graph"
+            onClick={zoomOut}
+          >
+            +
+          </button>
+          <button
+            type="button"
+            className={`${styles.iconButton} ${styles.chartResetButton}`}
+            aria-label="Reset graph zoom"
+            onClick={resetZoom}
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={280}>
+        <AreaChart
+          data={visibleData}
+          margin={{ top: 18, right: 12, left: 0, bottom: 0 }}
+        >
           <CartesianGrid stroke="#ded8c8" strokeDasharray="3 6" vertical={false} />
           <XAxis
             dataKey="day"

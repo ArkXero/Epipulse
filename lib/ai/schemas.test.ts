@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { denverPreset, dmvPreset, nycPreset } from "@/lib/model";
-import { fallbackScenario } from "./fallbacks";
+import { DEFAULT_INTERVENTIONS } from "@/lib/model/constants";
+import { runSimulation } from "@/lib/model/runSimulation";
+import { fallbackScenario, hasMeaningfulDiseasePrompt } from "./fallbacks";
 import { normalizeScenarioForSimulation } from "./scenario-normalization";
 import {
   scenarioConfigSchema,
@@ -62,6 +64,45 @@ describe("AI scenario schema", () => {
     expect(fallback.scenario).toBe("A severe winter wave with faster transmission");
     expect(fallback.disease.r0).toBeGreaterThan(nycPreset.disease.r0);
     expect(fallback.disease.cfr).toBeGreaterThan(nycPreset.disease.cfr);
+  });
+
+  it("uses a zero-outbreak baseline when the prompt is not outbreak-related", () => {
+    const fallback = fallbackScenario("a", "nyc");
+    const timeline = runSimulation({
+      ...fallback,
+      days: 5,
+      interventions: DEFAULT_INTERVENTIONS
+    });
+    const aggregate = timeline.at(-1)?.aggregate;
+
+    expect(fallback.city.name).toBe(nycPreset.city.name);
+    expect(fallback.scenario).toBe("No disease outbreak indicated");
+    expect(fallback.disease.r0).toBe(nycPreset.disease.r0);
+    expect(fallback.seedCases).toBe(0);
+    expect(aggregate?.S).toBeGreaterThan(0);
+    expect(aggregate?.E).toBe(0);
+    expect(aggregate?.I).toBe(0);
+    expect(aggregate?.R).toBe(0);
+    expect(aggregate?.D).toBe(0);
+  });
+
+  it("treats negated outbreak language as a zero-outbreak prompt", () => {
+    const prompt = "no outbreak occurred";
+    const fallback = fallbackScenario(prompt, "nyc");
+    const timeline = runSimulation({
+      ...fallback,
+      days: 5,
+      interventions: DEFAULT_INTERVENTIONS
+    });
+    const aggregate = timeline.at(-1)?.aggregate;
+
+    expect(hasMeaningfulDiseasePrompt(prompt)).toBe(false);
+    expect(fallback.scenario).toBe("No disease outbreak indicated");
+    expect(fallback.seedCases).toBe(0);
+    expect(aggregate?.E).toBe(0);
+    expect(aggregate?.I).toBe(0);
+    expect(aggregate?.R).toBe(0);
+    expect(aggregate?.D).toBe(0);
   });
 
   it("normalizes clinically literal AI disease inputs for outbreak demos", () => {
