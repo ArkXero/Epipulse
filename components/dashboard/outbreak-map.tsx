@@ -10,7 +10,6 @@ import {
 } from "react-leaflet";
 import type { SimNode, SimulationDay } from "@/lib/model";
 import { formatNumber } from "@/lib/format";
-import styles from "./dashboard.module.css";
 
 export function OutbreakMap({
   city,
@@ -28,12 +27,12 @@ export function OutbreakMap({
   const maxInfected = Math.max(...day.nodes.map((node) => node.I), 1);
 
   return (
-    <div className={styles.mapFrame}>
+    <div className="h-[430px] w-full overflow-hidden border-2 border-ink max-[760px]:h-[340px]">
       <MapContainer
         center={[city.lat, city.lng]}
         zoom={11}
         scrollWheelZoom={false}
-        className={styles.map}
+        className="h-full w-full"
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -53,10 +52,10 @@ export function OutbreakMap({
               center={[node.lat, node.lng]}
               radius={selected ? radius + 4 : radius}
               pathOptions={{
-                color: selected ? "#20211d" : "#b04d3f",
-                fillColor: infected > 0 ? "#b04d3f" : "#3c647f",
-                fillOpacity: infected > 0 ? 0.28 + intensity * 0.42 : 0.22,
-                opacity: 0.9,
+                color: selected ? "#0a0a0a" : "#e61919",
+                fillColor: infected > 0 ? "#e61919" : "#0a0a0a",
+                fillOpacity: infected > 0 ? 0.3 + intensity * 0.55 : 0.18,
+                opacity: 1,
                 weight: selected ? 3 : 2
               }}
               eventHandlers={{
@@ -64,9 +63,9 @@ export function OutbreakMap({
               }}
             >
               <Tooltip direction="top" offset={[0, -6]} opacity={1}>
-                <div className={styles.mapTooltip}>
-                  <strong>{node.name}</strong>
-                  <span>{formatNumber(infected)} infectious</span>
+                <div className="grid gap-0.5 font-mono text-[11px] tracking-[0.04em]">
+                  <strong className="block text-ink uppercase">{node.name}</strong>
+                  <span className="block">{formatNumber(infected)} infectious</span>
                 </div>
               </Tooltip>
             </CircleMarker>

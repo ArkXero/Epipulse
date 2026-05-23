@@ -44,7 +44,6 @@ import {
 } from "@/lib/format";
 import { useSimStore } from "@/lib/store/sim-store";
 import { MapPanel } from "./map-panel";
-import styles from "./dashboard.module.css";
 
 const speedOptions = [0.5, 1, 2, 4];
 
@@ -54,6 +53,29 @@ const presetPrompts: Record<PresetKey, string> = {
   dmv: "A novel respiratory virus emerges across the DC, Maryland, and Virginia area.",
   island: "A respiratory outbreak reaches an island resort with limited hospital capacity."
 };
+
+const shellClass = "w-full max-w-[1480px] mx-auto px-6 pb-16 bg-paper max-[760px]:px-4";
+const topbarClass = "flex min-h-[60px] items-center justify-between border-b-2 border-ink py-4 max-[760px]:flex-col max-[760px]:items-start max-[760px]:gap-[14px]";
+const brandClass = "inline-flex items-center gap-[10px] font-display text-lg tracking-[-0.02em] uppercase";
+const brandMarkClass = "grid h-8 w-8 place-items-center bg-ink text-[#fffefa]";
+const navClass = "inline-flex items-center border-2 border-ink";
+const navLinkClass = "inline-flex min-h-9 items-center border-r-2 border-ink px-4 font-mono text-[11px] font-bold tracking-[0.12em] text-ink uppercase transition-colors duration-100 last:border-r-0 hover:bg-ink hover:text-[#fffefa]";
+const navLinkActiveClass = "inline-flex min-h-9 items-center border-r-2 border-ink bg-red px-4 font-mono text-[11px] font-bold tracking-[0.12em] text-[#fffefa] uppercase last:border-r-0";
+const heroClass = "grid grid-cols-[minmax(0,1fr)_minmax(360px,480px)] items-end gap-10 border-b-2 border-ink py-12 pb-8 max-[1100px]:grid-cols-1 max-[760px]:gap-[22px] max-[760px]:py-[30px] max-[760px]:pb-[22px]";
+const kickerClass = "m-0 mb-4 font-mono text-[11px] font-bold tracking-[0.14em] text-red uppercase";
+const eyebrowClass = kickerClass;
+const subheadClass = "mt-[18px] mb-0 font-mono text-xs tracking-[0.06em] text-muted uppercase";
+const panelClass = "min-w-0 border-2 border-ink bg-panel p-5";
+const panelHeaderClass = "mb-[18px] flex items-start justify-between gap-4 border-b border-ink pb-3 max-[760px]:flex-col";
+const panelTitleClass = "m-0 font-display text-lg leading-none tracking-[-0.02em] uppercase";
+const iconButtonClass = "inline-flex h-[38px] w-[38px] items-center justify-center border-2 border-ink bg-paper font-mono font-bold tracking-[0.1em] text-ink uppercase transition-colors duration-100 hover:bg-ink hover:text-[#fffefa] disabled:cursor-not-allowed disabled:opacity-50";
+const primaryButtonClass = "inline-flex min-h-[42px] items-center justify-center gap-2 border-2 border-ink bg-ink px-4 font-mono text-xs font-bold tracking-[0.1em] text-[#fffefa] uppercase transition-colors duration-100 hover:border-red hover:bg-red disabled:cursor-not-allowed disabled:opacity-50";
+const labelTextClass = "font-mono text-[10px] font-bold tracking-[0.14em] text-ink uppercase";
+const controlClass = "w-full border-2 border-ink bg-paper font-mono text-xs text-ink";
+const inlineErrorClass = "m-0 bg-red px-[10px] py-2 font-mono text-[11px] tracking-[0.08em] text-[#fffefa] uppercase";
+const dayBadgeClass = "inline-flex h-7 items-center border-2 border-ink bg-paper-soft px-3 font-mono text-[10px] font-bold tracking-[0.14em] text-ink uppercase";
+const statusClass = "inline-flex h-7 items-center border-2 border-ink px-3 font-mono text-[10px] font-bold tracking-[0.14em] text-[#fffefa] uppercase";
+const chartFrameClass = "h-[326px]";
 
 export function DashboardShell() {
   const {
@@ -99,29 +121,32 @@ export function DashboardShell() {
   }, [isPlaying, speed]);
 
   return (
-    <main className={styles.shell}>
-      <header className={styles.topbar}>
-        <Link href="/" className={styles.brand} aria-label="Epipulse dashboard">
-          <span className={styles.brandMark}>
-            <Activity size={18} strokeWidth={2} />
+    <main className={shellClass}>
+      <header className={topbarClass}>
+        <Link href="/" className={brandClass} aria-label="Epipulse home">
+          <span className={brandMarkClass}>
+            <Activity size={18} strokeWidth={2.4} />
           </span>
           <span>Epipulse</span>
         </Link>
-        <nav className={styles.nav}>
-          <Link className={styles.navLinkActive} href="/">
+        <nav className={navClass}>
+          <Link className={navLinkClass} href="/">
+            Home
+          </Link>
+          <Link className={navLinkActiveClass} href="/dashboard">
             Dashboard
           </Link>
-          <Link className={styles.navLink} href="/advisor">
+          <Link className={navLinkClass} href="/advisor">
             Advisor
           </Link>
         </nav>
       </header>
 
-      <section className={styles.hero}>
+      <section className={heroClass}>
         <div>
-          <p className={styles.kicker}>Network SEIR command view</p>
+          <p className={kickerClass}>Network SEIR command view</p>
           <h1>{config.scenario}</h1>
-          <p className={styles.subhead}>
+          <p className={subheadClass}>
             {config.city.name} · {config.disease.name} · R0{" "}
             {config.disease.r0.toFixed(1)}
           </p>
@@ -131,13 +156,13 @@ export function DashboardShell() {
 
       <MetricsStrip metrics={metrics} />
 
-      <section className={styles.workspace}>
-        <div className={styles.primaryColumn}>
-          <section className={styles.panel}>
-            <div className={styles.panelHeader}>
+      <section className="grid grid-cols-[minmax(0,1fr)_400px] items-start gap-6 pt-6 max-[1100px]:grid-cols-1">
+        <div className="grid gap-6">
+          <section className={panelClass}>
+            <div className={panelHeaderClass}>
               <div>
-                <p className={styles.eyebrow}>Aggregate trajectory</p>
-                <h2>Day {current.day}</h2>
+                <p className={eyebrowClass}>Aggregate trajectory</p>
+                <h2 className={panelTitleClass}>Day {current.day}</h2>
               </div>
               <PlaybackControls
                 currentDay={currentDay}
@@ -152,13 +177,13 @@ export function DashboardShell() {
             <AggregateChart />
           </section>
 
-          <section className={styles.panel}>
-            <div className={styles.panelHeader}>
+          <section className={panelClass}>
+            <div className={panelHeaderClass}>
               <div>
-                <p className={styles.eyebrow}>Geographic spread</p>
-                <h2>{config.city.name}</h2>
+                <p className={eyebrowClass}>Geographic spread</p>
+                <h2 className={panelTitleClass}>{config.city.name}</h2>
               </div>
-              <div className={styles.dayBadge}>Day {current.day}</div>
+              <div className={dayBadgeClass}>Day {current.day}</div>
             </div>
             <MapPanel
               city={config.city}
@@ -170,7 +195,7 @@ export function DashboardShell() {
           </section>
         </div>
 
-        <aside className={styles.sideColumn}>
+        <aside className="grid gap-6">
           <InterventionControls />
           <NodeDetailPanel selectedNode={selectedNode} />
           <NarrationPanel metrics={metrics} />
@@ -215,10 +240,11 @@ function ScenarioPanel() {
   }
 
   return (
-    <form className={styles.scenarioPanel} onSubmit={handleGenerate}>
-      <div className={styles.fieldRow}>
-        <label htmlFor="preset">Preset</label>
+    <form className="grid gap-3 border-2 border-ink bg-panel p-[18px]" onSubmit={handleGenerate}>
+      <div className="grid gap-1.5">
+        <label className={labelTextClass} htmlFor="preset">Preset</label>
         <select
+          className={`${controlClass} h-[38px] px-[10px]`}
           id="preset"
           value={presetKey}
           onChange={(event) => {
@@ -235,18 +261,19 @@ function ScenarioPanel() {
           <option value="island">Island</option>
         </select>
       </div>
-      <div className={styles.fieldRow}>
-        <label htmlFor="scenario-prompt">Scenario prompt</label>
+      <div className="grid gap-1.5">
+        <label className={labelTextClass} htmlFor="scenario-prompt">Scenario prompt</label>
         <textarea
+          className={`${controlClass} min-h-20 resize-y p-[10px] leading-[1.45]`}
           id="scenario-prompt"
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
           rows={3}
         />
       </div>
-      {error ? <p className={styles.inlineError}>{error}</p> : null}
+      {error ? <p className={inlineErrorClass}>{error}</p> : null}
       <button
-        className={styles.primaryButton}
+        className={primaryButtonClass}
         type="submit"
         disabled={status === "loading"}
       >
@@ -264,7 +291,7 @@ function MetricsStrip({ metrics }: { metrics: SimulationMetrics }) {
       : `Day ${metrics.firstNodeHospitalBreachDay}`;
 
   return (
-    <section className={styles.metricsStrip}>
+    <section className="grid grid-cols-4 border-b-2 border-ink max-[760px]:grid-cols-1">
       <MetricCell
         label="Peak infected"
         value={formatCompact(metrics.peakInfected)}
@@ -309,11 +336,11 @@ function MetricCell({
   icon: React.ReactNode;
 }) {
   return (
-    <div className={styles.metricCell}>
-      <div className={styles.metricIcon}>{icon}</div>
-      <p>{label}</p>
-      <strong>{value}</strong>
-      <span>{detail}</span>
+    <div className="relative min-w-0 border-r-2 border-ink px-[22px] py-[22px] pb-6 last:border-r-0 max-[760px]:border-r-0 max-[760px]:border-b-2 max-[760px]:last:border-b-0">
+      <div className="absolute right-[18px] top-[18px] grid h-[26px] w-[26px] place-items-center bg-red text-[#fffefa]">{icon}</div>
+      <p className="m-0 mb-3 font-mono text-[10px] font-bold tracking-[0.14em] text-muted uppercase">{label}</p>
+      <strong className="block font-display text-[clamp(1.8rem,3.5vw,2.8rem)] font-normal leading-[0.9] tracking-[-0.04em] text-ink">{value}</strong>
+      <span className="mt-2 block font-mono text-[11px] tracking-[0.06em] text-muted uppercase">{detail}</span>
     </div>
   );
 }
@@ -334,73 +361,76 @@ function AggregateChart() {
   );
 
   return (
-    <div className={styles.chartFrame}>
+    <div className={chartFrameClass}>
       <ResponsiveContainer width="100%" height={320}>
         <AreaChart data={data} margin={{ top: 18, right: 12, left: 0, bottom: 0 }}>
-          <CartesianGrid stroke="#ded8c8" strokeDasharray="3 6" vertical={false} />
+          <CartesianGrid stroke="#d4d0c4" strokeDasharray="2 4" vertical={false} />
           <XAxis
             dataKey="day"
             tickLine={false}
-            axisLine={false}
-            tick={{ fill: "#6d7167", fontSize: 12 }}
+            axisLine={{ stroke: "#0a0a0a" }}
+            tick={{ fill: "#0a0a0a", fontSize: 10, fontFamily: "IBM Plex Mono, monospace" }}
           />
           <YAxis
             tickFormatter={formatCompact}
             tickLine={false}
-            axisLine={false}
+            axisLine={{ stroke: "#0a0a0a" }}
             width={56}
-            tick={{ fill: "#6d7167", fontSize: 12 }}
+            tick={{ fill: "#0a0a0a", fontSize: 10, fontFamily: "IBM Plex Mono, monospace" }}
           />
           <Tooltip
             formatter={(value, name) => [
               formatNumber(Number(value ?? 0)),
               String(name)
             ]}
-            labelFormatter={(label) => `Day ${label}`}
+            labelFormatter={(label) => `DAY ${label}`}
             contentStyle={{
-              background: "#fffefa",
-              border: "1px solid #d9d5c8",
-              borderRadius: 8,
-              boxShadow: "0 14px 35px rgba(32, 33, 29, 0.12)"
+              background: "#f4f4f0",
+              border: "2px solid #0a0a0a",
+              borderRadius: 0,
+              fontFamily: "IBM Plex Mono, monospace",
+              fontSize: 11,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em"
             }}
           />
           <Area
             type="monotone"
             dataKey="susceptible"
             stackId="1"
-            stroke="#3c647f"
-            fill="#3c647f"
-            fillOpacity={0.15}
+            stroke="#8a8780"
+            fill="#8a8780"
+            fillOpacity={0.18}
           />
           <Area
             type="monotone"
             dataKey="exposed"
             stackId="2"
-            stroke="#a87924"
-            fill="#a87924"
+            stroke="#4a4a45"
+            fill="#4a4a45"
             fillOpacity={0.22}
           />
           <Area
             type="monotone"
             dataKey="infected"
             stackId="3"
-            stroke="#b04d3f"
-            fill="#b04d3f"
-            fillOpacity={0.26}
+            stroke="#e61919"
+            fill="#e61919"
+            fillOpacity={0.45}
           />
           <Area
             type="monotone"
             dataKey="recovered"
             stackId="4"
-            stroke="#2f7d68"
-            fill="#2f7d68"
+            stroke="#5a5a55"
+            fill="#5a5a55"
             fillOpacity={0.18}
           />
           <Line
             type="monotone"
             dataKey="deaths"
-            stroke="#20211d"
-            strokeWidth={2}
+            stroke="#0a0a0a"
+            strokeWidth={2.5}
             dot={false}
           />
         </AreaChart>
@@ -427,9 +457,9 @@ function PlaybackControls({
   onSpeedChange: (speed: number) => void;
 }) {
   return (
-    <div className={styles.playback}>
+    <div className="grid grid-cols-[40px_minmax(160px,260px)_74px] items-center gap-2 max-[760px]:w-full max-[760px]:grid-cols-[40px_1fr_74px]">
       <button
-        className={styles.iconButton}
+        className={iconButtonClass}
         type="button"
         aria-label={isPlaying ? "Pause playback" : "Start playback"}
         onClick={() => onPlayingChange(!isPlaying)}
@@ -442,7 +472,7 @@ function PlaybackControls({
       </button>
       <input
         aria-label="Current simulation day"
-        className={styles.scrubber}
+        className="w-full accent-red"
         type="range"
         min={0}
         max={maxDay}
@@ -450,6 +480,7 @@ function PlaybackControls({
         onChange={(event) => onCurrentDayChange(Number(event.target.value))}
       />
       <select
+        className={`${controlClass} h-[38px] px-[10px]`}
         aria-label="Playback speed"
         value={speed}
         onChange={(event) => onSpeedChange(Number(event.target.value))}
@@ -471,14 +502,14 @@ function InterventionControls() {
   const closedNodeIds = new Set(interventions.closedNodeIds);
 
   return (
-    <section className={styles.panel}>
-      <div className={styles.panelHeader}>
+    <section className={panelClass}>
+      <div className={panelHeaderClass}>
         <div>
-          <p className={styles.eyebrow}>Levers</p>
-          <h2>Interventions</h2>
+          <p className={eyebrowClass}>Levers</p>
+          <h2 className={panelTitleClass}>Interventions</h2>
         </div>
         <button
-          className={styles.iconButton}
+          className={iconButtonClass}
           type="button"
           aria-label="Reset interventions"
           onClick={resetInterventions}
@@ -521,20 +552,23 @@ function InterventionControls() {
         onChange={(value) => setInterventions({ travelRestriction: value })}
       />
 
-      <div className={styles.toggleList}>
+      <div className="grid gap-0 border-t border-line-hair pt-2">
         {config.nodes.map((node) => (
           <button
             key={node.id}
             type="button"
             className={
               closedNodeIds.has(node.id)
-                ? styles.nodeToggleActive
-                : styles.nodeToggle
+                ? "grid min-h-[38px] grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-[10px] border-0 border-b border-line-hair bg-red px-[10px] py-2 text-left font-mono text-[11px] tracking-[0.08em] text-[#fffefa] uppercase transition-colors duration-100 last:border-b-0"
+                : "grid min-h-[38px] grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-[10px] border-0 border-b border-line-hair bg-transparent px-[10px] py-2 text-left font-mono text-[11px] tracking-[0.08em] text-ink uppercase transition-colors duration-100 last:border-b-0 hover:bg-paper-soft"
             }
             onClick={() => toggleNodeClosed(node.id)}
           >
             {getNodeIcon(node.type, 15)}
-            <span>{node.name}</span>
+            <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{node.name}</span>
+            <span className="font-mono text-[9px] font-bold tracking-[0.12em]">
+              {closedNodeIds.has(node.id) ? "CLOSED" : "OPEN"}
+            </span>
           </button>
         ))}
       </div>
@@ -564,16 +598,17 @@ function SliderControl({
   onChange: (value: number) => void;
 }) {
   return (
-    <label className={styles.sliderControl}>
-      <span>
-        <span className={styles.sliderLabel}>
+    <label className="mb-5 grid gap-2 border-b border-line-hair pb-4 font-mono text-[10px] font-bold tracking-[0.14em] text-ink uppercase last-of-type:border-b-0">
+      <span className="flex items-center justify-between gap-3">
+        <span className="inline-flex items-center gap-2 text-ink">
           {icon}
           {label}
         </span>
-        <strong>{displayValue}</strong>
+        <strong className="font-mono text-[13px] font-bold tracking-[0.04em] text-red">{displayValue}</strong>
       </span>
-      <span className={styles.sliderCopy}>{description}</span>
+      <span className="block max-w-[36rem] font-mono text-[11px] font-normal leading-[1.5] tracking-normal text-muted normal-case">{description}</span>
       <input
+        className="w-full accent-red"
         type="range"
         min={min}
         max={max}
@@ -625,18 +660,18 @@ function NodeDetailPanel({ selectedNode }: { selectedNode: SimNode }) {
   const isClosed = config.interventions.closedNodeIds.includes(selectedNode.id);
 
   return (
-    <section className={styles.panel}>
-      <div className={styles.panelHeader}>
+    <section className={panelClass}>
+      <div className={panelHeaderClass}>
         <div>
-          <p className={styles.eyebrow}>Selected node</p>
-          <h2>{selectedNode.name}</h2>
+          <p className={eyebrowClass}>Selected node</p>
+          <h2 className={panelTitleClass}>{selectedNode.name}</h2>
         </div>
-        <div className={isClosed ? styles.statusClosed : styles.statusOpen}>
+        <div className={isClosed ? `${statusClass} border-red bg-red` : `${statusClass} bg-ink`}>
           {isClosed ? "Closed" : "Open"}
         </div>
       </div>
 
-      <div className={styles.nodeStats}>
+      <div className="grid grid-cols-3 border-2 border-ink max-[760px]:grid-cols-1">
         <Stat
           label="Peak infected"
           value={nodeSummary.peakInfected.value}
@@ -654,63 +689,68 @@ function NodeDetailPanel({ selectedNode }: { selectedNode: SimNode }) {
         />
       </div>
 
-      <div className={styles.miniChart}>
+      <div className="mt-[18px]">
         <ResponsiveContainer width="100%" height={150}>
           <LineChart data={data} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
             <XAxis
               dataKey="day"
               tickLine={false}
-              axisLine={false}
-              tick={{ fill: "#6d7167", fontSize: 11 }}
+              axisLine={{ stroke: "#0a0a0a" }}
+              tick={{ fill: "#0a0a0a", fontSize: 10, fontFamily: "IBM Plex Mono, monospace" }}
             />
             <YAxis
               tickFormatter={formatCompact}
               tickLine={false}
-              axisLine={false}
-              tick={{ fill: "#6d7167", fontSize: 11 }}
+              axisLine={{ stroke: "#0a0a0a" }}
+              tick={{ fill: "#0a0a0a", fontSize: 10, fontFamily: "IBM Plex Mono, monospace" }}
             />
             <Tooltip
               formatter={(value, name) => [
                 formatNumber(Number(value ?? 0)),
                 String(name)
               ]}
-              labelFormatter={(label) => `Day ${label}`}
+              labelFormatter={(label) => `DAY ${label}`}
               contentStyle={{
-                background: "#fffefa",
-                border: "1px solid #d9d5c8",
-                borderRadius: 8
+                background: "#f4f4f0",
+                border: "2px solid #0a0a0a",
+                borderRadius: 0,
+                fontFamily: "IBM Plex Mono, monospace",
+                fontSize: 11,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em"
               }}
             />
             <Line
               type="monotone"
               dataKey="infected"
-              stroke="#b04d3f"
-              strokeWidth={2}
+              stroke="#e61919"
+              strokeWidth={2.5}
               dot={false}
             />
             <Line
               type="monotone"
               dataKey="hospitalized"
-              stroke="#a87924"
+              stroke="#0a0a0a"
               strokeWidth={2}
               dot={false}
+              strokeDasharray="4 4"
             />
           </LineChart>
         </ResponsiveContainer>
       </div>
 
-      <dl className={styles.nodeFacts}>
-        <div>
-          <dt>Population</dt>
-          <dd>{formatNumber(selectedNode.population)}</dd>
+      <dl className="mt-3 grid grid-cols-3 border-2 border-ink max-[760px]:grid-cols-1">
+        <div className="min-w-0 border-r border-ink bg-panel px-3 py-[10px] last:border-r-0 max-[760px]:border-r-0 max-[760px]:border-b max-[760px]:last:border-b-0">
+          <dt className={`${labelTextClass} overflow-hidden text-ellipsis whitespace-nowrap`}>Population</dt>
+          <dd className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs font-bold tracking-[0.04em] text-ink uppercase">{formatNumber(selectedNode.population)}</dd>
         </div>
-        <div>
-          <dt>Capacity</dt>
-          <dd>{formatNumber(selectedNode.hospitalCapacity)}</dd>
+        <div className="min-w-0 border-r border-ink bg-panel px-3 py-[10px] last:border-r-0 max-[760px]:border-r-0 max-[760px]:border-b max-[760px]:last:border-b-0">
+          <dt className={`${labelTextClass} overflow-hidden text-ellipsis whitespace-nowrap`}>Capacity</dt>
+          <dd className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs font-bold tracking-[0.04em] text-ink uppercase">{formatNumber(selectedNode.hospitalCapacity)}</dd>
         </div>
-        <div>
-          <dt>Type</dt>
-          <dd>{selectedNode.type}</dd>
+        <div className="min-w-0 border-r border-ink bg-panel px-3 py-[10px] last:border-r-0 max-[760px]:border-r-0 max-[760px]:border-b max-[760px]:last:border-b-0">
+          <dt className={`${labelTextClass} overflow-hidden text-ellipsis whitespace-nowrap`}>Type</dt>
+          <dd className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs font-bold tracking-[0.04em] text-ink uppercase">{selectedNode.type}</dd>
         </div>
       </dl>
     </section>
@@ -727,10 +767,10 @@ function Stat({
   detail: string;
 }) {
   return (
-    <div>
-      <span>{label}</span>
-      <strong>{formatCompact(value)}</strong>
-      <small>{detail}</small>
+    <div className="min-w-0 border-r border-ink bg-panel p-3 last:border-r-0 max-[760px]:border-r-0 max-[760px]:border-b max-[760px]:last:border-b-0">
+      <span className={labelTextClass}>{label}</span>
+      <strong className="mt-1.5 block font-display text-lg font-normal leading-[0.95] tracking-[-0.03em] text-red">{formatCompact(value)}</strong>
+      <small className="mt-1 block font-mono text-[10px] tracking-[0.08em] text-muted uppercase">{detail}</small>
     </div>
   );
 }
@@ -779,14 +819,14 @@ function NarrationPanel({ metrics }: { metrics: SimulationMetrics }) {
   }
 
   return (
-    <section className={styles.panel}>
-      <div className={styles.panelHeader}>
+    <section className={panelClass}>
+      <div className={panelHeaderClass}>
         <div>
-          <p className={styles.eyebrow}>Incident note</p>
-          <h2>Explain this</h2>
+          <p className={eyebrowClass}>Incident note</p>
+          <h2 className={panelTitleClass}>Explain this</h2>
         </div>
         <button
-          className={styles.iconButton}
+          className={iconButtonClass}
           type="button"
           aria-label="Generate incident note"
           disabled={status === "loading"}
@@ -795,7 +835,7 @@ function NarrationPanel({ metrics }: { metrics: SimulationMetrics }) {
           <Sparkles size={16} strokeWidth={2} />
         </button>
       </div>
-      <p className={styles.reportText}>
+      <p className="m-0 border-l-4 border-red bg-paper-soft p-3 font-mono text-xs leading-[1.6] text-ink">
         {report ||
           `Day ${current.day}: ${formatNumber(
             current.aggregate.I

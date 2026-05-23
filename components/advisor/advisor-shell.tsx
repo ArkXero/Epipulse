@@ -14,9 +14,22 @@ import { calculateMetrics } from "@/lib/model";
 import type { AdvisorChatMessage } from "@/lib/ai/schemas";
 import { formatCompact, formatNumber } from "@/lib/format";
 import { useSimStore } from "@/lib/store/sim-store";
-import styles from "./advisor.module.css";
 
 type LocalMessage = AdvisorChatMessage & { id: string };
+
+const shellClass = "w-full max-w-[1320px] mx-auto px-6 pb-16 bg-paper max-[700px]:px-4";
+const topbarClass = "flex min-h-[60px] items-center justify-between border-b-2 border-ink py-4 max-[700px]:flex-col max-[700px]:items-start max-[700px]:gap-3";
+const brandClass = "inline-flex items-center gap-[10px] font-display text-lg tracking-[-0.02em] uppercase";
+const brandMarkClass = "grid h-8 w-8 place-items-center bg-ink text-[#fffefa]";
+const navClass = "inline-flex items-center border-2 border-ink";
+const navLinkClass = "inline-flex min-h-9 items-center border-r-2 border-ink px-4 font-mono text-[11px] font-bold tracking-[0.12em] text-ink uppercase transition-colors duration-100 last:border-r-0 hover:bg-ink hover:text-[#fffefa]";
+const navLinkActiveClass = "inline-flex min-h-9 items-center border-r-2 border-ink bg-red px-4 font-mono text-[11px] font-bold tracking-[0.12em] text-[#fffefa] uppercase last:border-r-0";
+const headerGridClass = "grid grid-cols-[minmax(0,1fr)_minmax(360px,520px)] items-end gap-9 border-b-2 border-ink py-12 pb-7 max-[980px]:grid-cols-1 max-[700px]:gap-[22px] max-[700px]:py-[30px] max-[700px]:pb-[22px]";
+const kickerClass = "m-0 mb-[14px] font-mono text-[11px] font-bold tracking-[0.14em] text-red uppercase";
+const subheadClass = "mt-4 mb-0 font-mono text-xs tracking-[0.06em] text-muted uppercase";
+const labelTextClass = "font-mono text-[10px] font-bold tracking-[0.14em] text-muted uppercase";
+const messageIconClass = "grid h-8 w-8 place-items-center bg-ink text-[#fffefa]";
+const inlineErrorClass = "m-0 bg-red px-[10px] py-2 font-mono text-[11px] tracking-[0.08em] text-[#fffefa] uppercase";
 
 export function AdvisorShell() {
   const { config, timeline, currentDay } = useSimStore();
@@ -120,33 +133,36 @@ export function AdvisorShell() {
   }
 
   return (
-    <main className={styles.shell}>
-      <header className={styles.topbar}>
-        <Link href="/" className={styles.brand} aria-label="Epipulse dashboard">
-          <span className={styles.brandMark}>
-            <Activity size={18} strokeWidth={2} />
+    <main className={shellClass}>
+      <header className={topbarClass}>
+        <Link href="/" className={brandClass} aria-label="Epipulse home">
+          <span className={brandMarkClass}>
+            <Activity size={18} strokeWidth={2.4} />
           </span>
           <span>Epipulse</span>
         </Link>
-        <nav className={styles.nav}>
-          <Link className={styles.navLink} href="/">
+        <nav className={navClass}>
+          <Link className={navLinkClass} href="/">
+            Home
+          </Link>
+          <Link className={navLinkClass} href="/dashboard">
             Dashboard
           </Link>
-          <Link className={styles.navLinkActive} href="/advisor">
+          <Link className={navLinkActiveClass} href="/advisor">
             Advisor
           </Link>
         </nav>
       </header>
 
-      <section className={styles.headerGrid}>
+      <section className={headerGridClass}>
         <div>
-          <p className={styles.kicker}>Advisor</p>
+          <p className={kickerClass}>Advisor</p>
           <h1>Operational guidance from the live run</h1>
-          <p className={styles.subhead}>
+          <p className={subheadClass}>
             {config.scenario} · day {current.day} · {config.city.name}
           </p>
         </div>
-        <div className={styles.snapshot}>
+        <div className="grid grid-cols-2 border-2 border-ink max-[700px]:grid-cols-1">
           <SnapshotCell label="Infectious" value={formatCompact(current.aggregate.I)} />
           <SnapshotCell
             label="Hospitalized"
@@ -163,91 +179,107 @@ export function AdvisorShell() {
         </div>
       </section>
 
-      <section className={styles.advisorGrid}>
-        <div className={styles.chatPanel}>
-          <div className={styles.messages}>
+      <section className="grid grid-cols-[minmax(0,1fr)_360px] items-start gap-6 pt-6 max-[980px]:grid-cols-1">
+        <div className="flex min-h-[620px] flex-col border-2 border-ink bg-panel">
+          <div className="grid flex-1 gap-[14px] overflow-y-auto p-5">
             {messages.map((message) => (
               <article
                 key={message.id}
                 className={
                   message.role === "user"
-                    ? styles.userMessage
-                    : styles.assistantMessage
+                    ? "grid grid-cols-[32px_minmax(0,1fr)] items-start gap-3"
+                    : "grid grid-cols-[32px_minmax(0,1fr)] items-start gap-3"
                 }
               >
-                <span className={styles.messageIcon}>
+                <span className={message.role === "user" ? `${messageIconClass} bg-red` : messageIconClass}>
                   {message.role === "user" ? (
                     <UserRound size={16} strokeWidth={2} />
                   ) : (
                     <Bot size={16} strokeWidth={2} />
                   )}
                 </span>
-                <p>{message.content || "Thinking"}</p>
+                <p
+                  className={
+                    message.role === "user"
+                      ? "m-0 border-2 border-ink bg-ink p-[14px] font-mono text-[13px] leading-[1.6] text-[#fffefa]"
+                      : "m-0 border-2 border-ink bg-paper-soft p-[14px] font-mono text-[13px] leading-[1.6] text-ink"
+                  }
+                >
+                  {message.content || "Thinking"}
+                </p>
               </article>
             ))}
           </div>
 
-          <form className={styles.composer} onSubmit={handleSubmit}>
-            <label htmlFor="advisor-message">Message</label>
+          <form className="m-0 grid gap-[10px] border-t-2 border-ink px-5 py-[18px] pb-5" onSubmit={handleSubmit}>
+            <label className={labelTextClass} htmlFor="advisor-message">Message</label>
             <textarea
+              className="min-h-24 w-full resize-y border-2 border-ink bg-paper p-3 font-mono text-[13px] leading-[1.5] text-ink focus:outline-2 focus:outline-red"
               id="advisor-message"
               value={input}
               rows={3}
               onChange={(event) => setInput(event.target.value)}
             />
-            {error ? <p className={styles.inlineError}>{error}</p> : null}
-            <button type="submit" disabled={isStreaming}>
+            {error ? <p className={inlineErrorClass}>{error}</p> : null}
+            <button
+              className="inline-flex min-h-[42px] min-w-[140px] items-center justify-center justify-self-end gap-2 border-2 border-ink bg-ink px-4 font-mono text-xs font-bold tracking-[0.12em] text-[#fffefa] uppercase transition-colors duration-100 hover:border-red hover:bg-red disabled:cursor-not-allowed disabled:opacity-55"
+              type="submit"
+              disabled={isStreaming}
+            >
               <Send size={16} strokeWidth={2} />
               {isStreaming ? "Sending" : "Send"}
             </button>
           </form>
         </div>
 
-        <aside className={styles.contextPanel}>
-          <div className={styles.contextHeader}>
-            <p className={styles.kicker}>Context</p>
-            <Link href="/" className={styles.backLink}>
+        <aside className="border-2 border-ink bg-panel">
+          <div className="flex items-center justify-between gap-[14px] border-b-2 border-ink px-[18px] py-4">
+            <p className={kickerClass}>Context</p>
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center gap-1.5 border-2 border-ink px-[10px] py-1.5 font-mono text-[11px] font-bold tracking-[0.12em] text-ink uppercase transition-colors duration-100 hover:border-red hover:bg-red hover:text-[#fffefa]"
+            >
               Dashboard
               <ArrowUpRight size={15} strokeWidth={2} />
             </Link>
           </div>
 
-          <dl className={styles.contextList}>
-            <div>
-              <dt>Current infectious</dt>
-              <dd>{formatNumber(current.aggregate.I)}</dd>
+          <dl className="m-0 grid gap-0 bg-panel p-0">
+            <div className="flex justify-between gap-4 border-b border-ink px-[18px] py-[14px] max-[700px]:flex-col max-[700px]:items-start max-[700px]:gap-1">
+              <dt className={labelTextClass}>Current infectious</dt>
+              <dd className="m-0 font-mono text-[13px] font-bold tracking-[0.04em] text-red uppercase">{formatNumber(current.aggregate.I)}</dd>
             </div>
-            <div>
-              <dt>Current deaths</dt>
-              <dd>{formatNumber(current.aggregate.D)}</dd>
+            <div className="flex justify-between gap-4 border-b border-ink px-[18px] py-[14px] max-[700px]:flex-col max-[700px]:items-start max-[700px]:gap-1">
+              <dt className={labelTextClass}>Current deaths</dt>
+              <dd className="m-0 font-mono text-[13px] font-bold tracking-[0.04em] text-red uppercase">{formatNumber(current.aggregate.D)}</dd>
             </div>
-            <div>
-              <dt>Hospital breach</dt>
-              <dd>
+            <div className="flex justify-between gap-4 border-b border-ink px-[18px] py-[14px] max-[700px]:flex-col max-[700px]:items-start max-[700px]:gap-1">
+              <dt className={labelTextClass}>Hospital breach</dt>
+              <dd className="m-0 font-mono text-[13px] font-bold tracking-[0.04em] text-red uppercase">
                 {metrics.firstNodeHospitalBreachDay === null
                   ? "None"
                   : `Day ${metrics.firstNodeHospitalBreachDay}`}
               </dd>
             </div>
-            <div>
-              <dt>Transmission scale</dt>
-              <dd>{config.interventions.transmissionRate.toFixed(2)}x</dd>
+            <div className="flex justify-between gap-4 border-b border-ink px-[18px] py-[14px] max-[700px]:flex-col max-[700px]:items-start max-[700px]:gap-1">
+              <dt className={labelTextClass}>Transmission scale</dt>
+              <dd className="m-0 font-mono text-[13px] font-bold tracking-[0.04em] text-red uppercase">{config.interventions.transmissionRate.toFixed(2)}x</dd>
             </div>
-            <div>
-              <dt>Isolation</dt>
-              <dd>
+            <div className="flex justify-between gap-4 border-b border-ink px-[18px] py-[14px] max-[700px]:flex-col max-[700px]:items-start max-[700px]:gap-1">
+              <dt className={labelTextClass}>Isolation</dt>
+              <dd className="m-0 font-mono text-[13px] font-bold tracking-[0.04em] text-red uppercase">
                 {Math.round(config.interventions.isolationCompliance * 100)}%
               </dd>
             </div>
-            <div>
-              <dt>Travel restriction</dt>
-              <dd>
+            <div className="flex justify-between gap-4 px-[18px] py-[14px] max-[700px]:flex-col max-[700px]:items-start max-[700px]:gap-1">
+              <dt className={labelTextClass}>Travel restriction</dt>
+              <dd className="m-0 font-mono text-[13px] font-bold tracking-[0.04em] text-red uppercase">
                 {Math.round(config.interventions.travelRestriction * 100)}%
               </dd>
             </div>
           </dl>
 
-          <div className={styles.alertBox}>
+          <div className="grid grid-cols-[18px_minmax(0,1fr)] items-start gap-[10px] border-t-2 border-ink bg-red px-4 py-[14px] font-mono text-[11px] leading-[1.5] tracking-[0.06em] text-[#fffefa] uppercase">
             <AlertTriangle size={17} strokeWidth={2} />
             <span>
               Advice is generated text. Model state changes only through the
@@ -262,9 +294,9 @@ export function AdvisorShell() {
 
 function SnapshotCell({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <span>{label}</span>
-      <strong>{value}</strong>
+    <div className="min-w-0 border-r border-b border-ink bg-panel p-[18px] even:border-r-0 [&:nth-last-child(-n+2)]:border-b-0 max-[700px]:border-r-0 max-[700px]:border-b max-[700px]:last:border-b-0 max-[700px]:[&:nth-last-child(-n+2)]:border-b">
+      <span className={labelTextClass}>{label}</span>
+      <strong className="mt-2 block font-display text-[1.6rem] font-normal leading-[0.95] tracking-[-0.03em] text-red">{value}</strong>
     </div>
   );
 }

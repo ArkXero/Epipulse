@@ -2,13 +2,16 @@
 
 import dynamic from "next/dynamic";
 import type { SimNode, SimulationDay } from "@/lib/model";
-import styles from "./dashboard.module.css";
 
 const OutbreakMap = dynamic(
   () => import("./outbreak-map").then((mod) => mod.OutbreakMap),
   {
     ssr: false,
-    loading: () => <div className={styles.mapLoading}>Loading map</div>
+    loading: () => (
+      <div className="grid h-[430px] w-full place-items-center overflow-hidden border-2 border-ink bg-paper-soft font-mono text-[11px] tracking-[0.12em] text-muted uppercase max-[760px]:h-[340px]">
+        Loading map
+      </div>
+    )
   }
 );
 

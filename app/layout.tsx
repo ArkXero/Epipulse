@@ -1,31 +1,32 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Archivo_Black, IBM_Plex_Mono } from "next/font/google";
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const displayFont = Archivo_Black({
+  variable: "--font-display",
+  weight: "400",
   subsets: ["latin"]
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const monoFont = IBM_Plex_Mono({
+  variable: "--font-mono",
+  weight: ["400", "500", "600", "700"],
   subsets: ["latin"]
 });
 
 export const metadata: Metadata = {
-  title: "Epipulse",
-  description: "Deterministic network SEIR outbreak planning dashboard"
+  title: "EPIPULSE / NETWORK SEIR COMMAND",
+  description:
+    "Deterministic city-scale outbreak telemetry. Network SEIR simulation, intervention planning, and live advisor briefings."
 };
 
 export default function RootLayout({
   children
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body className={`${displayFont.variable} ${monoFont.variable}`}>
         {children}
       </body>
     </html>
