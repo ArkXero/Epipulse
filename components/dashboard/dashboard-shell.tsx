@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -22,6 +22,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -142,7 +143,10 @@ export function DashboardShell() {
                 onSpeedChange={setSpeed}
               />
             </div>
-            <AggregateChart />
+            <div className={styles.chartLayout}>
+              <AggregateTable current={current} />
+              <AggregateChart />
+            </div>
           </section>
 
           <section className={styles.panel}>
@@ -310,8 +314,30 @@ function MetricCell({
   );
 }
 
+function AggregateTable({ current }: { current: ReturnType<typeof useSimStore.getState>["timeline"][number] }) {
+  const rows = [
+    { label: "Susceptible", value: current.aggregate.S, color: "#3c647f" },
+    { label: "Exposed",     value: current.aggregate.E, color: "#a87924" },
+    { label: "Infected",    value: current.aggregate.I, color: "#b04d3f" },
+    { label: "Recovered",   value: current.aggregate.R, color: "#2f7d68" },
+    { label: "Deaths",      value: current.aggregate.D, color: "#20211d" }
+  ];
+  return (
+    <div className={styles.aggregateTable}>
+      {rows.map((row) => (
+        <div key={row.label} className={styles.aggregateRow}>
+          <span className={styles.aggregateDot} style={{ background: row.color }} />
+          <span className={styles.aggregateLabel}>{row.label}</span>
+          <strong className={styles.aggregateValue}>{formatNumber(Math.round(row.value))}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function AggregateChart() {
   const timeline = useSimStore((state) => state.timeline);
+  const currentDay = useSimStore((state) => state.currentDay);
   const data = useMemo(
     () =>
       timeline.map((day) => ({
@@ -325,76 +351,26 @@ function AggregateChart() {
     [timeline]
   );
 
+  const currentDayNum = timeline[currentDay]?.day ?? 0;
+
   return (
     <div className={styles.chartFrame}>
       <ResponsiveContainer width="100%" height={320}>
         <AreaChart data={data} margin={{ top: 18, right: 12, left: 0, bottom: 0 }}>
           <CartesianGrid stroke="#ded8c8" strokeDasharray="3 6" vertical={false} />
-          <XAxis
-            dataKey="day"
-            tickLine={false}
-            axisLine={false}
-            tick={{ fill: "#6d7167", fontSize: 12 }}
-          />
-          <YAxis
-            tickFormatter={formatCompact}
-            tickLine={false}
-            axisLine={false}
-            width={56}
-            tick={{ fill: "#6d7167", fontSize: 12 }}
-          />
+          <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fill: "#6d7167", fontSize: 12 }} />
+          <YAxis tickFormatter={formatCompact} tickLine={false} axisLine={false} width={56} tick={{ fill: "#6d7167", fontSize: 12 }} />
           <Tooltip
-            formatter={(value, name) => [
-              formatNumber(Number(value ?? 0)),
-              String(name)
-            ]}
+            formatter={(value, name) => [formatNumber(Number(value ?? 0)), String(name)]}
             labelFormatter={(label) => `Day ${label}`}
-            contentStyle={{
-              background: "#fffefa",
-              border: "1px solid #d9d5c8",
-              borderRadius: 8,
-              boxShadow: "0 14px 35px rgba(32, 33, 29, 0.12)"
-            }}
+            contentStyle={{ background: "#fffefa", border: "1px solid #d9d5c8", borderRadius: 8, boxShadow: "0 14px 35px rgba(32,33,29,0.12)" }}
           />
-          <Area
-            type="monotone"
-            dataKey="susceptible"
-            stackId="1"
-            stroke="#3c647f"
-            fill="#3c647f"
-            fillOpacity={0.15}
-          />
-          <Area
-            type="monotone"
-            dataKey="exposed"
-            stackId="2"
-            stroke="#a87924"
-            fill="#a87924"
-            fillOpacity={0.22}
-          />
-          <Area
-            type="monotone"
-            dataKey="infected"
-            stackId="3"
-            stroke="#b04d3f"
-            fill="#b04d3f"
-            fillOpacity={0.26}
-          />
-          <Area
-            type="monotone"
-            dataKey="recovered"
-            stackId="4"
-            stroke="#2f7d68"
-            fill="#2f7d68"
-            fillOpacity={0.18}
-          />
-          <Line
-            type="monotone"
-            dataKey="deaths"
-            stroke="#20211d"
-            strokeWidth={2}
-            dot={false}
-          />
+          <ReferenceLine x={currentDayNum} stroke="rgba(47,125,104,0.6)" strokeWidth={2} strokeDasharray="0" />
+          <Area type="monotone" dataKey="susceptible" stackId="1" stroke="#3c647f" fill="#3c647f" fillOpacity={0.15} />
+          <Area type="monotone" dataKey="exposed" stackId="2" stroke="#a87924" fill="#a87924" fillOpacity={0.22} />
+          <Area type="monotone" dataKey="infected" stackId="3" stroke="#b04d3f" fill="#b04d3f" fillOpacity={0.26} />
+          <Area type="monotone" dataKey="recovered" stackId="4" stroke="#2f7d68" fill="#2f7d68" fillOpacity={0.18} />
+          <Line type="monotone" dataKey="deaths" stroke="#20211d" strokeWidth={2} dot={false} />
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -575,6 +551,7 @@ function NodeDetailPanel({ selectedNode }: { selectedNode: SimNode }) {
   const timeline = useSimStore((state) => state.timeline);
   const currentDay = useSimStore((state) => state.currentDay);
   const config = useSimStore((state) => state.config);
+  const [modalOpen, setModalOpen] = useState(false);
   const selectedState = timeline[currentDay]?.nodes.find(
     (node) => node.nodeId === selectedNode.id
   );
@@ -582,7 +559,6 @@ function NodeDetailPanel({ selectedNode }: { selectedNode: SimNode }) {
     () =>
       timeline.map((day) => {
         const node = day.nodes.find((entry) => entry.nodeId === selectedNode.id);
-
         return {
           day: day.day,
           infected: Math.round(node?.I ?? 0),
@@ -595,83 +571,126 @@ function NodeDetailPanel({ selectedNode }: { selectedNode: SimNode }) {
   const isClosed = config.interventions.closedNodeIds.includes(selectedNode.id);
 
   return (
-    <section className={styles.panel}>
-      <div className={styles.panelHeader}>
-        <div>
-          <p className={styles.eyebrow}>Selected node</p>
-          <h2>{selectedNode.name}</h2>
+    <>
+      <section className={styles.panel}>
+        <div className={styles.panelHeader}>
+          <div>
+            <p className={styles.eyebrow}>Selected node</p>
+            <h2>{selectedNode.name}</h2>
+          </div>
+          <button
+            className={isClosed ? styles.statusClosed : styles.statusOpen}
+            type="button"
+            onClick={() => setModalOpen(true)}
+          >
+            {isClosed ? "Closed" : "Open"}
+          </button>
         </div>
-        <div className={isClosed ? styles.statusClosed : styles.statusOpen}>
-          {isClosed ? "Closed" : "Open"}
-        </div>
-      </div>
 
-      <div className={styles.nodeStats}>
-        <Stat label="Infected" value={selectedState?.I ?? 0} />
-        <Stat label="Hospitalized" value={selectedState?.hospitalized ?? 0} />
-        <Stat label="Deaths" value={selectedState?.D ?? 0} />
-      </div>
+        <div className={styles.nodeStats}>
+          <Stat label="Infected" value={selectedState?.I ?? 0} />
+          <Stat label="Hospitalized" value={selectedState?.hospitalized ?? 0} />
+          <Stat label="Deaths" value={selectedState?.D ?? 0} />
+        </div>
 
-      <div className={styles.miniChart}>
-        <ResponsiveContainer width="100%" height={150}>
-          <LineChart data={data} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
-            <XAxis
-              dataKey="day"
-              tickLine={false}
-              axisLine={false}
-              tick={{ fill: "#6d7167", fontSize: 11 }}
-            />
-            <YAxis
-              tickFormatter={formatCompact}
-              tickLine={false}
-              axisLine={false}
-              tick={{ fill: "#6d7167", fontSize: 11 }}
-            />
-            <Tooltip
-              formatter={(value, name) => [
-                formatNumber(Number(value ?? 0)),
-                String(name)
-              ]}
-              labelFormatter={(label) => `Day ${label}`}
-              contentStyle={{
-                background: "#fffefa",
-                border: "1px solid #d9d5c8",
-                borderRadius: 8
-              }}
-            />
-            <Line
-              type="monotone"
-              dataKey="infected"
-              stroke="#b04d3f"
-              strokeWidth={2}
-              dot={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="hospitalized"
-              stroke="#a87924"
-              strokeWidth={2}
-              dot={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+        <div className={styles.miniChart}>
+          <ResponsiveContainer width="100%" height={150}>
+            <LineChart data={data} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
+              <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fill: "#6d7167", fontSize: 11 }} />
+              <YAxis tickFormatter={formatCompact} tickLine={false} axisLine={false} tick={{ fill: "#6d7167", fontSize: 11 }} />
+              <Tooltip
+                formatter={(value, name) => [formatNumber(Number(value ?? 0)), String(name)]}
+                labelFormatter={(label) => `Day ${label}`}
+                contentStyle={{ background: "#fffefa", border: "1px solid #d9d5c8", borderRadius: 8 }}
+              />
+              <Line type="monotone" dataKey="infected" stroke="#b04d3f" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="hospitalized" stroke="#a87924" strokeWidth={2} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
 
-      <dl className={styles.nodeFacts}>
-        <div>
-          <dt>Population</dt>
-          <dd>{formatNumber(selectedNode.population)}</dd>
+        <dl className={styles.nodeFacts}>
+          <div><dt>Population</dt><dd>{formatNumber(selectedNode.population)}</dd></div>
+          <div><dt>Capacity</dt><dd>{formatNumber(selectedNode.hospitalCapacity)}</dd></div>
+          <div><dt>Type</dt><dd>{selectedNode.type}</dd></div>
+        </dl>
+      </section>
+
+      {modalOpen && (
+        <div className={styles.modalOverlay} onClick={() => setModalOpen(false)}>
+          <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <div>
+                <p className={styles.eyebrow}>Node detail</p>
+                <h2>{selectedNode.name}</h2>
+              </div>
+              <div className={styles.modalHeaderRight}>
+                <span className={isClosed ? styles.statusClosed : styles.statusOpen}>
+                  {isClosed ? "Closed" : "Open"}
+                </span>
+                <button
+                  className={styles.iconButton}
+                  type="button"
+                  aria-label="Close"
+                  onClick={() => setModalOpen(false)}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <div className={styles.modalStats}>
+              <ModalStat label="Infectious now" value={selectedState?.I ?? 0} color="#b04d3f" />
+              <ModalStat label="Hospitalized" value={selectedState?.hospitalized ?? 0} color="#a87924" />
+              <ModalStat label="Deaths" value={selectedState?.D ?? 0} color="#20211d" />
+              <ModalStat label="Recovered" value={selectedState?.R ?? 0} color="#2f7d68" />
+              <ModalStat label="Population" value={selectedNode.population} color="#3c647f" />
+              <ModalStat label="Hospital capacity" value={selectedNode.hospitalCapacity} color="#6d7167" />
+            </div>
+
+            <div className={styles.modalChartLabel}>
+              <span className={styles.modalLegendDot} style={{ background: "#b04d3f" }} /> Infected
+              <span className={styles.modalLegendDot} style={{ background: "#a87924", marginLeft: 12 }} /> Hospitalized
+              <span className={styles.modalLegendDot} style={{ background: "#20211d", marginLeft: 12 }} /> Deaths
+            </div>
+            <div className={styles.modalChart}>
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                  <CartesianGrid stroke="#ded8c8" strokeDasharray="3 6" vertical={false} />
+                  <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fill: "#6d7167", fontSize: 12 }} />
+                  <YAxis tickFormatter={formatCompact} tickLine={false} axisLine={false} width={52} tick={{ fill: "#6d7167", fontSize: 12 }} />
+                  <Tooltip
+                    formatter={(value, name) => [formatNumber(Number(value ?? 0)), String(name)]}
+                    labelFormatter={(label) => `Day ${label}`}
+                    contentStyle={{ background: "#fffefa", border: "1px solid #d9d5c8", borderRadius: 8, boxShadow: "0 14px 35px rgba(32,33,29,0.12)" }}
+                  />
+                  <Line type="monotone" dataKey="infected" stroke="#b04d3f" strokeWidth={2.5} dot={false} />
+                  <Line type="monotone" dataKey="hospitalized" stroke="#a87924" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="deaths" stroke="#20211d" strokeWidth={1.5} dot={false} strokeDasharray="4 3" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            <dl className={styles.modalFacts}>
+              <div><dt>Node type</dt><dd>{selectedNode.type}</dd></div>
+              <div><dt>Location</dt><dd>{selectedNode.lat.toFixed(4)}, {selectedNode.lng.toFixed(4)}</dd></div>
+              <div><dt>Status</dt><dd>{isClosed ? "Closed by intervention" : "Open"}</dd></div>
+              <div><dt>Day viewed</dt><dd>Day {currentDay}</dd></div>
+            </dl>
+          </div>
         </div>
-        <div>
-          <dt>Capacity</dt>
-          <dd>{formatNumber(selectedNode.hospitalCapacity)}</dd>
-        </div>
-        <div>
-          <dt>Type</dt>
-          <dd>{selectedNode.type}</dd>
-        </div>
-      </dl>
-    </section>
+      )}
+    </>
+  );
+}
+
+function ModalStat({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div className={styles.modalStatCell}>
+      <span className={styles.modalStatDot} style={{ background: color }} />
+      <p>{label}</p>
+      <strong>{formatNumber(Math.round(value))}</strong>
+    </div>
   );
 }
 

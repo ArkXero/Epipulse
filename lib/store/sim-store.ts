@@ -15,6 +15,19 @@ import type {
   SimulationDay
 } from "@/lib/model";
 
+export interface AdvisorMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+}
+
+const WELCOME_MESSAGE: AdvisorMessage = {
+  id: "welcome",
+  role: "assistant",
+  content:
+    "I am reading the live Epipulse snapshot. Ask about timing, hospital load, closure tradeoffs, or which intervention to move first."
+};
+
 interface SimStore {
   config: SimulationConfig;
   timeline: SimulationDay[];
@@ -22,6 +35,8 @@ interface SimStore {
   isPlaying: boolean;
   speed: number;
   selectedNodeId: string;
+  advisorMessages: AdvisorMessage[];
+  setAdvisorMessages: (messages: AdvisorMessage[]) => void;
   setPreset: (presetKey: PresetKey) => void;
   setScenario: (scenario: ScenarioConfig) => void;
   setCurrentDay: (day: number) => void;
@@ -42,6 +57,8 @@ export const useSimStore = create<SimStore>((set) => ({
   isPlaying: false,
   speed: 1,
   selectedNodeId: initialConfig.nodes[0].id,
+  advisorMessages: [WELCOME_MESSAGE],
+  setAdvisorMessages: (advisorMessages) => set({ advisorMessages }),
   setPreset: (presetKey) => {
     const preset = presets[presetKey];
     const config: SimulationConfig = {
