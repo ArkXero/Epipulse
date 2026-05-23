@@ -1,6 +1,6 @@
 import { streamText } from "ai";
-import { openai } from "@ai-sdk/openai";
 import { fallbackAdvice } from "@/lib/ai/fallbacks";
+import { getAnthropicModel, hasAnthropicApiKey } from "@/lib/ai/provider";
 import { advisorSystemPrompt, buildAdvisorPrompt } from "@/lib/ai/prompts";
 import { advisorRequestSchema } from "@/lib/ai/schemas";
 
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     });
   }
 
-  if (!process.env.OPENAI_API_KEY) {
+  if (!hasAnthropicApiKey()) {
     return new Response(fallbackAdvice(parsed.data), {
       headers: { "Content-Type": "text/plain; charset=utf-8" }
     });
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
 
   try {
     const result = streamText({
-      model: openai(process.env.OPENAI_MODEL ?? "gpt-5-mini"),
+      model: getAnthropicModel(),
       system: advisorSystemPrompt,
       prompt: buildAdvisorPrompt(parsed.data),
       maxOutputTokens: 420,

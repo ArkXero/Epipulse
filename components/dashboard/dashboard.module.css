@@ -366,8 +366,8 @@
 
 .sliderControl {
   display: grid;
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: 7px;
+  margin-bottom: 18px;
 }
 
 .sliderControl > span {
@@ -387,6 +387,15 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+
+.sliderCopy {
+  display: block;
+  max-width: 34rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 480;
+  line-height: 1.45;
 }
 
 .toggleList {
@@ -448,6 +457,14 @@
   margin-top: 4px;
   font-family: var(--font-geist-mono), monospace;
   font-size: 1.04rem;
+}
+
+.nodeStats small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.72rem;
 }
 
 .miniChart {

@@ -169,6 +169,108 @@ export const nycPreset: ScenarioConfig = {
   ]
 };
 
+export const dmvPreset: ScenarioConfig = {
+  scenario: "Regional respiratory outbreak across DC, Maryland, and Virginia",
+  disease: {
+    name: "Novel respiratory virus",
+    r0: 2.35,
+    incubationDays: 4.2,
+    infectiousDays: 6.4,
+    cfr: 0.006,
+    pSevere: 0.036
+  },
+  city: {
+    name: "DC-Maryland-Virginia",
+    lat: 38.9072,
+    lng: -77.0369
+  },
+  seedNodeId: "dca-airport",
+  seedCases: 22,
+  nodes: [
+    {
+      id: "dca-airport",
+      name: "Reagan National Airport",
+      type: "airport",
+      lat: 38.8512,
+      lng: -77.0402,
+      population: 39000,
+      hospitalCapacity: 0
+    },
+    {
+      id: "union-station-dc",
+      name: "Washington Union Station",
+      type: "transit",
+      lat: 38.8977,
+      lng: -77.0062,
+      population: 52000,
+      hospitalCapacity: 0
+    },
+    {
+      id: "downtown-dc",
+      name: "Downtown Washington DC",
+      type: "downtown",
+      lat: 38.9037,
+      lng: -77.0365,
+      population: 118000,
+      hospitalCapacity: 160
+    },
+    {
+      id: "medstar-washington",
+      name: "MedStar Washington Hospital Center",
+      type: "hospital",
+      lat: 38.9296,
+      lng: -77.0146,
+      population: 31000,
+      hospitalCapacity: 820
+    },
+    {
+      id: "bethesda-campus",
+      name: "Bethesda Medical Campus",
+      type: "hospital",
+      lat: 39.0004,
+      lng: -77.0968,
+      population: 28000,
+      hospitalCapacity: 620
+    },
+    {
+      id: "college-park",
+      name: "College Park Campus",
+      type: "school",
+      lat: 38.9869,
+      lng: -76.9426,
+      population: 43000,
+      hospitalCapacity: 24
+    },
+    {
+      id: "arlington-corridor",
+      name: "Arlington Residential Corridor",
+      type: "residential",
+      lat: 38.8816,
+      lng: -77.091,
+      population: 95000,
+      hospitalCapacity: 80
+    },
+    {
+      id: "alexandria-old-town",
+      name: "Alexandria Old Town",
+      type: "downtown",
+      lat: 38.8048,
+      lng: -77.0469,
+      population: 64000,
+      hospitalCapacity: 58
+    },
+    {
+      id: "silver-spring",
+      name: "Silver Spring Residential",
+      type: "residential",
+      lat: 38.9907,
+      lng: -77.0261,
+      population: 88000,
+      hospitalCapacity: 72
+    }
+  ]
+};
+
 export const islandPreset: ScenarioConfig = {
   scenario: "Island resort outbreak with one airport and limited care",
   disease: {
@@ -238,6 +340,7 @@ export const islandPreset: ScenarioConfig = {
 export const presets = {
   denver: denverPreset,
   nyc: nycPreset,
+  dmv: dmvPreset,
   island: islandPreset
 } satisfies Record<string, ScenarioConfig>;
 
@@ -253,7 +356,7 @@ export function createPresetSimulation(
   };
 }
 
-export function getPresetForPrompt(prompt: string): ScenarioConfig {
+export function getPresetKeyForPrompt(prompt: string): PresetKey | null {
   const normalizedPrompt = prompt.toLowerCase();
 
   if (
@@ -261,7 +364,18 @@ export function getPresetForPrompt(prompt: string): ScenarioConfig {
     normalizedPrompt.includes("nyc") ||
     normalizedPrompt.includes("manhattan")
   ) {
-    return structuredClone(nycPreset);
+    return "nyc";
+  }
+
+  if (
+    /\bdc\b/.test(normalizedPrompt) ||
+    normalizedPrompt.includes("d.c.") ||
+    normalizedPrompt.includes("washington") ||
+    normalizedPrompt.includes("maryland") ||
+    normalizedPrompt.includes("virginia") ||
+    /\bdmv\b/.test(normalizedPrompt)
+  ) {
+    return "dmv";
   }
 
   if (
@@ -269,8 +383,19 @@ export function getPresetForPrompt(prompt: string): ScenarioConfig {
     normalizedPrompt.includes("resort") ||
     normalizedPrompt.includes("harbor")
   ) {
-    return structuredClone(islandPreset);
+    return "island";
   }
 
-  return structuredClone(denverPreset);
+  if (
+    normalizedPrompt.includes("denver") ||
+    normalizedPrompt.includes("colorado")
+  ) {
+    return "denver";
+  }
+
+  return null;
+}
+
+export function getPresetForPrompt(prompt: string): ScenarioConfig {
+  return structuredClone(presets[getPresetKeyForPrompt(prompt) ?? "denver"]);
 }

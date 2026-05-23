@@ -1,7 +1,7 @@
 import { generateText } from "ai";
-import { openai } from "@ai-sdk/openai";
 import { NextResponse } from "next/server";
 import { fallbackNarration } from "@/lib/ai/fallbacks";
+import { getAnthropicModel, hasAnthropicApiKey } from "@/lib/ai/provider";
 import { buildNarrationPrompt } from "@/lib/ai/prompts";
 import { narrateRequestSchema } from "@/lib/ai/schemas";
 
@@ -15,13 +15,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ report: "No valid simulation snapshot was provided." });
   }
 
-  if (!process.env.OPENAI_API_KEY) {
+  if (!hasAnthropicApiKey()) {
     return NextResponse.json({ report: fallbackNarration(parsed.data) });
   }
 
   try {
     const result = await generateText({
-      model: openai(process.env.OPENAI_MODEL ?? "gpt-5-mini"),
+      model: getAnthropicModel(),
       prompt: buildNarrationPrompt(parsed.data),
       maxOutputTokens: 180,
       maxRetries: 1

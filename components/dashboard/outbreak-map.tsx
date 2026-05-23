@@ -1,6 +1,13 @@
 "use client";
 
-import { CircleMarker, MapContainer, TileLayer, Tooltip } from "react-leaflet";
+import { useEffect } from "react";
+import {
+  CircleMarker,
+  MapContainer,
+  TileLayer,
+  Tooltip,
+  useMap
+} from "react-leaflet";
 import type { SimNode, SimulationDay } from "@/lib/model";
 import { formatNumber } from "@/lib/format";
 import styles from "./dashboard.module.css";
@@ -32,6 +39,7 @@ export function OutbreakMap({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        <MapViewSync city={city} nodes={nodes} />
         {nodes.map((node) => {
           const state = day.nodes.find((entry) => entry.nodeId === node.id);
           const infected = state?.I ?? 0;
@@ -67,4 +75,30 @@ export function OutbreakMap({
       </MapContainer>
     </div>
   );
+}
+
+function MapViewSync({
+  city,
+  nodes
+}: {
+  city: { name: string; lat: number; lng: number };
+  nodes: SimNode[];
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (nodes.length < 2) {
+      map.setView([city.lat, city.lng], 11, { animate: false });
+      return;
+    }
+
+    const bounds = nodes.map((node) => [node.lat, node.lng] as [number, number]);
+    map.fitBounds(bounds, {
+      animate: false,
+      padding: [28, 28],
+      maxZoom: 12
+    });
+  }, [city.lat, city.lng, map, nodes]);
+
+  return null;
 }

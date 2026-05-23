@@ -11,7 +11,8 @@ export const scenarioSystemPrompt = [
   "Never include mobility matrices or time-series results.",
   "Use 5 to 9 nodes unless the prompt clearly needs fewer.",
   "Keep all nodes geographically close to the city center and use stable kebab-case ids.",
-  "Use plausible but conservative disease values for a respiratory illness."
+  "Epipulse models sustained human-to-human network spread; if the user names a zoonotic or vector disease, adapt it as a fictional transmissible planning variant instead of using real-world dead-end transmission.",
+  "For outbreak prompts, keep r0 generally between 1.8 and 3.4, incubationDays between 2 and 8, and seedCases large enough to show visible growth within a 120 day demo."
 ].join(" ");
 
 export function buildScenarioPrompt(prompt: string) {

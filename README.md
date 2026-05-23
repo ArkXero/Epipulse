@@ -1,6 +1,6 @@
 # Epipulse
 
-Epipulse is a Next.js App Router MVP for running deterministic city-scale outbreak scenarios. The epidemic math lives in `/lib/model`; OpenAI is only used for structured scenario inputs, short narration, and advisor text.
+Epipulse is a Next.js App Router MVP for running deterministic city-scale outbreak scenarios. The epidemic math lives in `/lib/model`; Anthropic Claude is only used for structured scenario inputs, short narration, and advisor text.
 
 ## Stack
 
@@ -8,7 +8,7 @@ Epipulse is a Next.js App Router MVP for running deterministic city-scale outbre
 - Zustand for shared simulation state
 - Recharts for SEIR/D curves
 - Leaflet and React Leaflet for the client-only map
-- AI SDK with OpenAI for server-only API routes
+- AI SDK with Anthropic Claude for server-only API routes
 - Vitest for model and schema tests
 
 ## Setup
@@ -19,7 +19,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Set `OPENAI_API_KEY` in `.env.local` to enable scenario generation, narration, and advisor responses. `OPENAI_MODEL` defaults to `gpt-5-mini`.
+Set `ANTHROPIC_API_KEY` in `.env.local` to enable scenario generation, narration, and advisor responses. `ANTHROPIC_MODEL` defaults to `claude-sonnet-4-6`.
 
 The app still works without an API key: `/api/scenario`, `/api/narrate`, and `/api/advisor` return deterministic preset or canned fallback output.
 

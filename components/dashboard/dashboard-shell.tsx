@@ -48,6 +48,13 @@ import styles from "./dashboard.module.css";
 
 const speedOptions = [0.5, 1, 2, 4];
 
+const presetPrompts: Record<PresetKey, string> = {
+  denver: "A novel respiratory virus emerges in Denver in winter.",
+  nyc: "A novel respiratory virus spreads through New York City transit corridors.",
+  dmv: "A novel respiratory virus emerges across the DC, Maryland, and Virginia area.",
+  island: "A respiratory outbreak reaches an island resort with limited hospital capacity."
+};
+
 export function DashboardShell() {
   const {
     config,
@@ -177,9 +184,7 @@ function ScenarioPanel() {
   const setPreset = useSimStore((state) => state.setPreset);
   const setScenario = useSimStore((state) => state.setScenario);
   const [presetKey, setPresetKey] = useState<PresetKey>("denver");
-  const [prompt, setPrompt] = useState(
-    "A novel respiratory virus emerges in Denver in winter."
-  );
+  const [prompt, setPrompt] = useState(presetPrompts.denver);
   const [status, setStatus] = useState<"idle" | "loading">("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -192,7 +197,7 @@ function ScenarioPanel() {
       const response = await fetch("/api/scenario", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt })
+        body: JSON.stringify({ prompt, fallbackPresetKey: presetKey })
       });
 
       if (!response.ok) {
@@ -220,10 +225,13 @@ function ScenarioPanel() {
             const nextPreset = event.target.value as PresetKey;
             setPresetKey(nextPreset);
             setPreset(nextPreset);
+            setPrompt(presetPrompts[nextPreset]);
+            setError(null);
           }}
         >
           <option value="denver">Denver</option>
           <option value="nyc">New York City</option>
+          <option value="dmv">DC-Maryland-Virginia</option>
           <option value="island">Island</option>
         </select>
       </div>
@@ -481,6 +489,7 @@ function InterventionControls() {
 
       <SliderControl
         label="Transmission"
+        description="1.00x is the disease baseline. Lower values reduce new exposures; higher values accelerate infections and deaths."
         value={interventions.transmissionRate}
         min={0.15}
         max={1.8}
@@ -491,6 +500,7 @@ function InterventionControls() {
       />
       <SliderControl
         label="Isolation"
+        description="Percent of infectious people effectively isolated. Higher values reduce infectious travel and contacts."
         value={interventions.isolationCompliance}
         min={0}
         max={0.95}
@@ -501,6 +511,7 @@ function InterventionControls() {
       />
       <SliderControl
         label="Travel"
+        description="Percent reduction in movement between nodes and airport importation. Higher values usually lower spread across the region."
         value={interventions.travelRestriction}
         min={0}
         max={1}
@@ -533,6 +544,7 @@ function InterventionControls() {
 
 function SliderControl({
   label,
+  description,
   value,
   min,
   max,
@@ -542,6 +554,7 @@ function SliderControl({
   onChange
 }: {
   label: string;
+  description: string;
   value: number;
   min: number;
   max: number;
@@ -559,6 +572,7 @@ function SliderControl({
         </span>
         <strong>{displayValue}</strong>
       </span>
+      <span className={styles.sliderCopy}>{description}</span>
       <input
         type="range"
         min={min}
@@ -573,11 +587,7 @@ function SliderControl({
 
 function NodeDetailPanel({ selectedNode }: { selectedNode: SimNode }) {
   const timeline = useSimStore((state) => state.timeline);
-  const currentDay = useSimStore((state) => state.currentDay);
   const config = useSimStore((state) => state.config);
-  const selectedState = timeline[currentDay]?.nodes.find(
-    (node) => node.nodeId === selectedNode.id
-  );
   const data = useMemo(
     () =>
       timeline.map((day) => {
@@ -592,6 +602,26 @@ function NodeDetailPanel({ selectedNode }: { selectedNode: SimNode }) {
       }),
     [timeline, selectedNode.id]
   );
+  const nodeSummary = useMemo(() => {
+    return data.reduce(
+      (summary, day) => ({
+        peakInfected:
+          day.infected > summary.peakInfected.value
+            ? { value: day.infected, day: day.day }
+            : summary.peakInfected,
+        peakHospitalized:
+          day.hospitalized > summary.peakHospitalized.value
+            ? { value: day.hospitalized, day: day.day }
+            : summary.peakHospitalized,
+        finalDeaths: day.deaths
+      }),
+      {
+        peakInfected: { value: 0, day: 0 },
+        peakHospitalized: { value: 0, day: 0 },
+        finalDeaths: 0
+      }
+    );
+  }, [data]);
   const isClosed = config.interventions.closedNodeIds.includes(selectedNode.id);
 
   return (
@@ -607,9 +637,21 @@ function NodeDetailPanel({ selectedNode }: { selectedNode: SimNode }) {
       </div>
 
       <div className={styles.nodeStats}>
-        <Stat label="Infected" value={selectedState?.I ?? 0} />
-        <Stat label="Hospitalized" value={selectedState?.hospitalized ?? 0} />
-        <Stat label="Deaths" value={selectedState?.D ?? 0} />
+        <Stat
+          label="Peak infected"
+          value={nodeSummary.peakInfected.value}
+          detail={`Day ${nodeSummary.peakInfected.day}`}
+        />
+        <Stat
+          label="Peak hospitalized"
+          value={nodeSummary.peakHospitalized.value}
+          detail={`Day ${nodeSummary.peakHospitalized.day}`}
+        />
+        <Stat
+          label="Total deaths"
+          value={nodeSummary.finalDeaths}
+          detail={`Day ${timeline.at(-1)?.day ?? 0}`}
+        />
       </div>
 
       <div className={styles.miniChart}>
@@ -675,11 +717,20 @@ function NodeDetailPanel({ selectedNode }: { selectedNode: SimNode }) {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({
+  label,
+  value,
+  detail
+}: {
+  label: string;
+  value: number;
+  detail: string;
+}) {
   return (
     <div>
       <span>{label}</span>
       <strong>{formatCompact(value)}</strong>
+      <small>{detail}</small>
     </div>
   );
 }

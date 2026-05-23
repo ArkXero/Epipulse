@@ -1,6 +1,6 @@
 import { generateObject } from "ai";
-import { openai } from "@ai-sdk/openai";
 import { NextResponse } from "next/server";
+import { getAnthropicModel, hasAnthropicApiKey } from "@/lib/ai/provider";
 import {
   suggestionsRequestSchema,
   suggestionsResponseSchema
@@ -12,13 +12,13 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const parsed = suggestionsRequestSchema.safeParse(body);
 
-  if (!parsed.success || !process.env.OPENAI_API_KEY) {
+  if (!parsed.success || !hasAnthropicApiKey()) {
     return NextResponse.json({ suggestedChanges: [] });
   }
 
   try {
     const result = await generateObject({
-      model: openai(process.env.OPENAI_MODEL ?? "gpt-5-mini"),
+      model: getAnthropicModel(),
       schema: suggestionsResponseSchema,
       schemaName: "AdvisorSuggestions",
       prompt: [

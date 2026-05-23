@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { getPresetForPrompt } from "@/lib/model";
-import type { ScenarioConfig } from "@/lib/model";
+import { getPresetKeyForPrompt, presets } from "@/lib/model";
+import type { PresetKey, ScenarioConfig } from "@/lib/model";
 
 export const nodeTypeSchema = z.enum([
   "airport",
@@ -78,7 +78,8 @@ export const scenarioConfigSchema = z
   });
 
 export const scenarioRequestSchema = z.object({
-  prompt: z.string().trim().min(1).max(1500)
+  prompt: z.string().trim().min(1).max(1500),
+  fallbackPresetKey: z.enum(["denver", "nyc", "dmv", "island"]).optional()
 });
 
 export const nodeStateSchema = z.object({
@@ -157,12 +158,15 @@ export const suggestionsResponseSchema = z.object({
 
 export function validateScenarioOrFallback(
   candidate: unknown,
-  prompt: string
+  prompt: string,
+  fallbackPresetKey?: PresetKey
 ): ScenarioConfig {
   const result = scenarioConfigSchema.safeParse(candidate);
 
   if (!result.success) {
-    return getPresetForPrompt(prompt);
+    return structuredClone(
+      presets[getPresetKeyForPrompt(prompt) ?? fallbackPresetKey ?? "denver"]
+    );
   }
 
   return result.data;
