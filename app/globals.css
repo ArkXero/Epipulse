@@ -155,7 +155,7 @@
   background: var(--pill-fg, currentColor);
 }
 
-/* Subtle indicator dot — replaces the old .pulse-dot, no animation */
+/* Subtle indicator dot with no animation */
 .dot {
   display: inline-block;
   width: 6px;

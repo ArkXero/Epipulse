@@ -261,7 +261,7 @@ export function Globe({
             .map((marker) => (
               <span
                 key={marker.id}
-                className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-2 border border-ink bg-ink px-3 py-1.5 font-mono text-[11px] font-bold tracking-[0.12em] text-white uppercase shadow-[0_8px_18px_rgba(10,10,10,0.16)] transition-[opacity,filter,transform] duration-300"
+                className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-2 rounded-full border border-[--color-hair] bg-[--color-paper] px-3 py-1.5 text-[11.5px] font-medium text-[--color-ink] shadow-[0_8px_18px_rgba(38,34,27,0.10)] transition-[opacity,filter,transform] duration-300"
                 style={anchorLabelStyle(`--cobe-${marker.id}`)}
               >
                 {marker.label}
@@ -274,7 +274,7 @@ export function Globe({
             .map((arc) => (
               <span
                 key={arc.id}
-                className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-3 border border-line-hair bg-white/95 px-3 py-1.5 font-mono text-[11px] font-bold tracking-[0.12em] text-ink uppercase shadow-[0_8px_20px_rgba(10,10,10,0.10)] transition-[opacity,filter,transform] duration-300"
+                className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-3 rounded-full border border-[--color-hair] bg-[--color-paper]/95 px-3 py-1.5 text-[11.5px] font-medium text-[--color-body] shadow-[0_8px_18px_rgba(38,34,27,0.08)] transition-[opacity,filter,transform] duration-300"
                 style={anchorLabelStyle(`--cobe-arc-${arc.id}`)}
               >
                 {arc.label}
