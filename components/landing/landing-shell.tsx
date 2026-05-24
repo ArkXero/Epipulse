@@ -194,13 +194,18 @@ const stackRows = [
 
 const shell = "w-full max-w-[1280px] mx-auto px-12 max-md:px-5";
 const primaryButton =
-  "inline-flex items-center justify-center rounded-full bg-[--color-accent] px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-[--color-accent-deep]";
+  "inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-medium transition-colors";
 const secondaryButton =
   "inline-flex items-center justify-center rounded-full border border-[--color-rule] px-5 py-3 text-sm font-medium text-[--color-ink] transition-colors hover:bg-[--color-paper]";
 const sectionEyebrow =
   "m-0 mb-3 font-mono text-[11px] tracking-[0.04em] text-[--color-muted]";
 const sectionHeading =
   "m-0 text-[32px] font-medium leading-[1.15] tracking-[-0.015em] text-[--color-ink]";
+
+const primaryButtonStyle = {
+  background: "var(--color-accent)",
+  color: "var(--color-bg)"
+};
 
 export function LandingShell() {
   return (
@@ -279,7 +284,11 @@ export function LandingShell() {
                 an advisor what to do next.
               </p>
               <div className="mt-9 flex flex-wrap gap-3">
-                <Link href="/dashboard" className={primaryButton}>
+                <Link
+                  href="/dashboard"
+                  className={primaryButton}
+                  style={primaryButtonStyle}
+                >
                   Open the dashboard <span aria-hidden>→</span>
                 </Link>
                 <a href="#methods" className={secondaryButton}>
@@ -463,7 +472,11 @@ export function LandingShell() {
             <p className="m-0 mt-3 text-[13.5px] text-[--color-muted]">
               Runs in your browser. No account, no tracking.
             </p>
-            <Link href="/dashboard" className={`${primaryButton} mt-8`}>
+            <Link
+              href="/dashboard"
+              className={`${primaryButton} mt-8`}
+              style={primaryButtonStyle}
+            >
               Open the dashboard <span aria-hidden>→</span>
             </Link>
           </section>

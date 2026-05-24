@@ -75,7 +75,7 @@ const navLinkClass =
   "text-[--color-body] hover:text-[--color-ink] transition-colors";
 const navLinkActiveClass = "text-[--color-ink] font-medium";
 const heroClass =
-  "grid grid-cols-[minmax(0,1fr)_minmax(360px,440px)] items-end gap-10 border-b border-[--color-hair] py-12 max-[1100px]:grid-cols-1 max-[760px]:gap-6 max-[760px]:py-8";
+  "grid grid-cols-[minmax(0,1fr)_minmax(360px,440px)] items-start gap-10 border-b border-[--color-hair] py-8 max-[1100px]:grid-cols-1 max-[760px]:gap-6 max-[760px]:py-6";
 const kickerClass = "m-0 mb-3 text-[12.5px] font-medium text-[--color-accent]";
 const eyebrowClass = kickerClass;
 const subheadClass = "mt-3 mb-0 text-[14px] text-[--color-muted]";
@@ -88,7 +88,7 @@ const panelTitleClass =
 const iconButtonClass =
   "inline-flex h-9 w-9 items-center justify-center rounded-[8px] border border-[--color-hair] bg-[--color-paper] text-[--color-body] hover:bg-[--color-paper-soft] hover:text-[--color-ink] transition-colors disabled:cursor-not-allowed disabled:opacity-50";
 const primaryButtonClass =
-  "inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-[--color-accent] px-4 text-[13px] font-medium text-white hover:bg-[--color-accent-deep] transition-colors disabled:cursor-not-allowed disabled:opacity-55";
+  "inline-flex min-h-10 items-center justify-center gap-2 rounded-full px-4 text-[13px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-55";
 const labelTextClass = "text-[12px] font-medium text-[--color-muted]";
 const controlClass =
   "w-full rounded-[8px] border border-[--color-hair] bg-[--color-bg] text-[13.5px] text-[--color-ink] focus:border-[--color-accent]";
@@ -97,6 +97,11 @@ const inlineErrorClass =
 const dayBadgeClass =
   "inline-flex h-7 items-center rounded-full border border-[--color-hair] bg-[--color-paper] px-3 text-[11.5px] font-medium text-[--color-body]";
 const chartFrameClass = "h-[360px]";
+
+const accentButtonStyle = {
+  background: "var(--color-accent)",
+  color: "var(--color-bg)"
+};
 
 type PillStyle = CSSProperties & {
   "--pill-bg": string;
@@ -281,7 +286,7 @@ function ScenarioPanel() {
 
   return (
     <form
-      className="grid gap-3 rounded-[12px] border border-[--color-hair] bg-[--color-paper] p-5"
+      className="grid gap-2.5 rounded-[12px] border border-[--color-hair] bg-[--color-paper] p-4"
       onSubmit={handleGenerate}
     >
       <div>
@@ -289,7 +294,7 @@ function ScenarioPanel() {
           Preset
         </label>
         <select
-          className={`${controlClass} h-10 px-3`}
+          className={`${controlClass} h-9 px-3`}
           id="preset"
           value={presetKey}
           onChange={(event) => {
@@ -314,7 +319,7 @@ function ScenarioPanel() {
           Prompt
         </label>
         <textarea
-          className={`${controlClass} min-h-20 resize-y p-3 leading-[1.5]`}
+          className={`${controlClass} min-h-16 resize-y p-3 leading-[1.5]`}
           id="scenario-prompt"
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
@@ -324,6 +329,7 @@ function ScenarioPanel() {
       {error ? <p className={inlineErrorClass}>{error}</p> : null}
       <button
         className={primaryButtonClass}
+        style={accentButtonStyle}
         type="submit"
         disabled={status === "loading"}
       >
@@ -527,7 +533,8 @@ function PlaybackControls({
   return (
     <div className="grid grid-cols-[40px_minmax(160px,260px)_84px] items-center gap-3 max-[760px]:w-full max-[760px]:grid-cols-[40px_1fr_84px]">
       <button
-        className="grid h-10 w-10 place-items-center rounded-full bg-[--color-accent] text-white transition-colors hover:bg-[--color-accent-deep]"
+        className="grid h-10 w-10 place-items-center rounded-full transition-colors"
+        style={accentButtonStyle}
         type="button"
         aria-label={isPlaying ? "Pause" : "Play"}
         onClick={() => onPlayingChange(!isPlaying)}
@@ -625,8 +632,17 @@ function InterventionControls() {
             type="button"
             className={
               closedNodeIds.has(node.id)
-                ? "flex items-center justify-between rounded-[8px] border border-[--color-ink] bg-[--color-ink] px-3 py-2.5 text-left text-[13px] text-[--color-bg] transition-colors"
+                ? "flex items-center justify-between rounded-[8px] border px-3 py-2.5 text-left text-[13px] transition-colors"
                 : "flex items-center justify-between rounded-[8px] border border-[--color-hair] bg-transparent px-3 py-2.5 text-left text-[13px] text-[--color-body] transition-colors hover:bg-[--color-paper-soft]"
+            }
+            style={
+              closedNodeIds.has(node.id)
+                ? {
+                    background: "var(--color-ink)",
+                    borderColor: "var(--color-ink)",
+                    color: "var(--color-bg)"
+                  }
+                : undefined
             }
             onClick={() => toggleNodeClosed(node.id)}
           >

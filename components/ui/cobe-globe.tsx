@@ -261,8 +261,13 @@ export function Globe({
             .map((marker) => (
               <span
                 key={marker.id}
-                className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-2 rounded-full border border-[--color-hair] bg-[--color-paper] px-3 py-1.5 text-[11.5px] font-medium text-[--color-ink] shadow-[0_8px_18px_rgba(38,34,27,0.10)] transition-[opacity,filter,transform] duration-300"
-                style={anchorLabelStyle(`--cobe-${marker.id}`)}
+                className="pointer-events-none absolute z-20 -translate-x-1/2 -translate-y-2 rounded-full border px-3 py-1.5 text-[11.5px] font-medium shadow-[0_10px_22px_rgba(38,34,27,0.18)] transition-[opacity,filter,transform] duration-300"
+                style={{
+                  ...anchorLabelStyle(`--cobe-${marker.id}`),
+                  background: "var(--color-ink)",
+                  borderColor: "var(--color-ink)",
+                  color: "var(--color-bg)"
+                }}
               >
                 {marker.label}
               </span>
@@ -274,8 +279,13 @@ export function Globe({
             .map((arc) => (
               <span
                 key={arc.id}
-                className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-3 rounded-full border border-[--color-hair] bg-[--color-paper]/95 px-3 py-1.5 text-[11.5px] font-medium text-[--color-body] shadow-[0_8px_18px_rgba(38,34,27,0.08)] transition-[opacity,filter,transform] duration-300"
-                style={anchorLabelStyle(`--cobe-arc-${arc.id}`)}
+                className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-3 rounded-full border px-3 py-1.5 text-[11.5px] font-medium shadow-[0_10px_22px_rgba(38,34,27,0.10)] transition-[opacity,filter,transform] duration-300"
+                style={{
+                  ...anchorLabelStyle(`--cobe-arc-${arc.id}`),
+                  background: "var(--color-paper)",
+                  borderColor: "var(--color-rule)",
+                  color: "var(--color-ink)"
+                }}
               >
                 {arc.label}
               </span>

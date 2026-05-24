@@ -1,14 +1,42 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useMemo, useState } from "react";
-import { ArrowUpRight, Bot, Send, UserRound } from "lucide-react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode
+} from "react";
 import { calculateMetrics } from "@/lib/model";
 import type { AdvisorChatMessage } from "@/lib/ai/schemas";
 import { formatCompact, formatNumber } from "@/lib/format";
 import { useSimStore } from "@/lib/store/sim-store";
 
 type LocalMessage = AdvisorChatMessage & { id: string };
+type ChatStatus = "ready" | "streaming" | "submitted" | "idle";
+
+type MessagePart =
+  | { type: "text"; text: string }
+  | { type: "error"; title?: string; message: string };
+
+type AgentMessage = {
+  id: string;
+  role: "user" | "assistant";
+  parts: MessagePart[];
+};
+
+type AgentChatProps = {
+  messages: AgentMessage[];
+  onSend?: (message: { role: "user"; content: string }) => void;
+  onStop?: () => void;
+  status?: ChatStatus;
+  error?: { message: string; title?: string } | null;
+  emptyStatePosition?: "default" | "center";
+  className?: string;
+};
 
 const shellClass =
   "w-full max-w-[1320px] mx-auto px-12 pb-16 bg-[--color-bg] max-[700px]:px-5";
@@ -27,8 +55,48 @@ const headerGridClass =
 const kickerClass = "m-0 mb-3 text-[12.5px] font-medium text-[--color-accent]";
 const subheadClass = "mt-3 mb-0 text-[14px] text-[--color-muted]";
 const labelTextClass = "text-[12px] font-medium text-[--color-muted]";
-const inlineErrorClass =
-  "m-0 rounded-[6px] border border-[--color-alarm]/40 bg-[--color-alarm-soft] px-3 py-2 text-[12px] text-[--color-alarm]";
+
+function cn(...inputs: Array<string | false | null | undefined>) {
+  return inputs.filter(Boolean).join(" ");
+}
+
+const SendIcon = () => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <line x1="12" y1="19" x2="12" y2="5" />
+    <polyline points="5 12 12 5 19 12" />
+  </svg>
+);
+
+const StopIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+    <rect x="6" y="6" width="12" height="12" rx="1" />
+  </svg>
+);
+
+const ArrowUpRightIcon = () => (
+  <svg
+    width="13"
+    height="13"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M7 17 17 7" />
+    <path d="M8 7h9v9" />
+  </svg>
+);
 
 export function AdvisorShell() {
   const { config, timeline, currentDay } = useSimStore();
@@ -37,99 +105,136 @@ export function AdvisorShell() {
     [timeline, config.nodes]
   );
   const current = timeline[currentDay] ?? timeline[0];
+  const abortRef = useRef<AbortController | null>(null);
   const [messages, setMessages] = useState<LocalMessage[]>([
     {
       id: "welcome",
       role: "assistant",
       content:
-        "I am reading the live Epipulse snapshot. Ask about timing, hospital load, closure tradeoffs, or which intervention to move first."
+        "I'm reading the live Epipulse snapshot. Ask about timing, hospital load, closure tradeoffs, or which intervention to move first."
     }
   ]);
-  const [input, setInput] = useState("What should we do on the current day?");
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const trimmedInput = input.trim();
+  const agentMessages = useMemo<AgentMessage[]>(
+    () =>
+      messages.map((message) => ({
+        id: message.id,
+        role: message.role,
+        parts: [{ type: "text", text: message.content }]
+      })),
+    [messages]
+  );
 
-    if (!trimmedInput || isStreaming) {
-      return;
-    }
+  const handleSend = useCallback(
+    async ({ content }: { role: "user"; content: string }) => {
+      const trimmedInput = content.trim();
 
-    const userMessage: LocalMessage = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: trimmedInput
-    };
-    const assistantMessage: LocalMessage = {
-      id: crypto.randomUUID(),
-      role: "assistant",
-      content: ""
-    };
-    const nextMessages = [...messages, userMessage, assistantMessage];
-
-    setMessages(nextMessages);
-    setInput("");
-    setIsStreaming(true);
-    setError(null);
-
-    try {
-      const response = await fetch("/api/advisor", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [...messages, userMessage].map(({ role, content }) => ({
-            role,
-            content
-          })),
-          config,
-          currentDay: current,
-          metrics
-        })
-      });
-
-      if (!response.ok || !response.body) {
-        throw new Error("Advisor request failed");
+      if (!trimmedInput || isStreaming) {
+        return;
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let streamedText = "";
+      const userMessage: LocalMessage = {
+        id: crypto.randomUUID(),
+        role: "user",
+        content: trimmedInput
+      };
+      const assistantMessage: LocalMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: ""
+      };
+      const requestMessages = [...messages, userMessage];
+      const nextMessages = [...requestMessages, assistantMessage];
+      const controller = new AbortController();
 
-      while (true) {
-        const { done, value } = await reader.read();
+      abortRef.current = controller;
+      setMessages(nextMessages);
+      setIsStreaming(true);
+      setError(null);
 
-        if (done) {
-          break;
+      try {
+        const response = await fetch("/api/advisor", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            messages: requestMessages.map(({ role, content: messageContent }) => ({
+              role,
+              content: messageContent
+            })),
+            config,
+            currentDay: current,
+            metrics
+          })
+        });
+
+        if (!response.ok || !response.body) {
+          throw new Error("Advisor request failed");
         }
 
-        streamedText += decoder.decode(value, { stream: true });
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let streamedText = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+
+          if (done) {
+            break;
+          }
+
+          streamedText += decoder.decode(value, { stream: true });
+          setMessages((currentMessages) =>
+            currentMessages.map((message) =>
+              message.id === assistantMessage.id
+                ? { ...message, content: streamedText }
+                : message
+            )
+          );
+        }
+      } catch (sendError) {
+        const stopped =
+          sendError instanceof DOMException && sendError.name === "AbortError";
+
+        if (stopped) {
+          setMessages((currentMessages) =>
+            currentMessages.map((message) =>
+              message.id === assistantMessage.id
+                ? {
+                    ...message,
+                    content: "Stopped before the advisor finished responding."
+                  }
+                : message
+            )
+          );
+          return;
+        }
+
+        setError("Advisor is unavailable. The local simulation state is unchanged.");
         setMessages((currentMessages) =>
           currentMessages.map((message) =>
             message.id === assistantMessage.id
-              ? { ...message, content: streamedText }
+              ? {
+                  ...message,
+                  content:
+                    "The advisor stream is unavailable. Reduce transmission first, increase isolation compliance where feasible, and watch hospital breach timing before closing additional nodes."
+                }
               : message
           )
         );
+      } finally {
+        abortRef.current = null;
+        setIsStreaming(false);
       }
-    } catch {
-      setError("Advisor is unavailable. The local simulation state is unchanged.");
-      setMessages((currentMessages) =>
-        currentMessages.map((message) =>
-          message.id === assistantMessage.id
-            ? {
-                ...message,
-                content:
-                  "The advisor stream is unavailable. Reduce transmission first, increase isolation compliance where feasible, and watch hospital breach timing before closing additional nodes."
-              }
-            : message
-        )
-      );
-    } finally {
-      setIsStreaming(false);
-    }
-  }
+    },
+    [config, current, isStreaming, messages, metrics]
+  );
+
+  const handleStop = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
 
   return (
     <main className={shellClass}>
@@ -195,38 +300,22 @@ export function AdvisorShell() {
       </section>
 
       <section className="grid grid-cols-[minmax(0,1fr)_360px] items-start gap-6 pt-8 max-[980px]:grid-cols-1">
-        <div className="flex min-h-[620px] flex-col rounded-[12px] border border-[--color-hair] bg-[--color-paper]">
-          <div className="grid flex-1 gap-4 overflow-y-auto p-6">
-            {messages.map((message) => (
-              <MessageBubble key={message.id} message={message} />
-            ))}
-          </div>
-
-          <form
-            className="m-0 grid gap-2.5 border-t border-[--color-hair] px-6 py-5"
-            onSubmit={handleSubmit}
-          >
-            <label className={labelTextClass} htmlFor="advisor-message">
-              Your message
-            </label>
-            <textarea
-              className="min-h-24 w-full resize-y rounded-[8px] border border-[--color-hair] bg-[--color-bg] p-3 text-[14px] leading-[1.5] text-[--color-ink] focus:border-[--color-accent]"
-              id="advisor-message"
-              value={input}
-              rows={3}
-              placeholder={`Ask about day ${current.day}…`}
-              onChange={(event) => setInput(event.target.value)}
-            />
-            {error ? <p className={inlineErrorClass}>{error}</p> : null}
-            <button
-              className="inline-flex min-h-10 min-w-[140px] items-center justify-center justify-self-end gap-2 rounded-full bg-[--color-accent] px-4 text-[13px] font-medium text-white transition-colors hover:bg-[--color-accent-deep] disabled:cursor-not-allowed disabled:opacity-55"
-              type="submit"
-              disabled={isStreaming}
-            >
-              {isStreaming ? "Sending…" : "Send"}
-              <Send size={14} strokeWidth={2} />
-            </button>
-          </form>
+        <div className="min-h-[650px] overflow-hidden rounded-[12px] border border-[--color-hair] bg-[--color-paper] shadow-[0_18px_45px_-32px_rgba(38,34,27,0.45)]">
+          <AgentChat
+            messages={agentMessages}
+            onSend={handleSend}
+            onStop={handleStop}
+            status={isStreaming ? "streaming" : "ready"}
+            error={
+              error
+                ? {
+                    title: "Request failed",
+                    message: error
+                  }
+                : null
+            }
+            className="h-[650px]"
+          />
         </div>
 
         <aside className="overflow-hidden rounded-[12px] border border-[--color-hair] bg-[--color-paper]">
@@ -234,10 +323,10 @@ export function AdvisorShell() {
             <p className={kickerClass}>Context</p>
             <Link
               href="/dashboard"
-              className="inline-flex items-center gap-1.5 rounded-[8px] border border-[--color-hair] px-3 py-1.5 text-[12px] text-[--color-body] transition-colors hover:bg-[--color-paper-soft] hover:text-[--color-ink]"
+              className="inline-flex items-center gap-1.5 rounded-[8px] border border-[--color-hair] px-3 py-1.5 text-[12px] text-[--color-body] transition-colors hover:bg-[--color-paper-soft] hover:text-[--color-ink] active:translate-y-px"
             >
               Dashboard
-              <ArrowUpRight size={13} strokeWidth={2} />
+              <ArrowUpRightIcon />
             </Link>
           </div>
 
@@ -290,53 +379,288 @@ export function AdvisorShell() {
   );
 }
 
-function MessageBubble({ message }: { message: LocalMessage }) {
-  const isUser = message.role === "user";
-
+function UserBubble({ text }: { text: string }) {
   return (
-    <article className="grid grid-cols-[28px_minmax(0,1fr)] items-start gap-3">
-      <span
-        className="grid h-7 w-7 place-items-center rounded-full"
-        style={
-          isUser
-            ? { background: "var(--color-ink)", color: "var(--color-bg)" }
-            : {
-                background: "var(--color-accent-soft)",
-                color: "var(--color-accent)"
-              }
-        }
-      >
-        {isUser ? (
-          <UserRound size={14} strokeWidth={2} />
-        ) : (
-          <Bot size={14} strokeWidth={2} />
-        )}
-      </span>
-      <p
-        className="m-0 rounded-[10px] px-4 py-3 text-[14px] leading-[1.6]"
-        style={
-          isUser
-            ? { background: "var(--color-ink)", color: "var(--color-bg)" }
-            : {
-                background: "var(--color-paper-soft)",
-                color: "var(--color-body)"
-              }
-        }
-      >
-        {message.content || (
-          <span className="inline-flex items-center gap-1.5 text-[--color-muted]">
-            Thinking
-            <span className="inline-flex gap-0.5">
-              <span className="inline-block h-1 w-1 animate-pulse rounded-full bg-current" />
-              <span className="inline-block h-1 w-1 animate-pulse rounded-full bg-current [animation-delay:120ms]" />
-              <span className="inline-block h-1 w-1 animate-pulse rounded-full bg-current [animation-delay:240ms]" />
-            </span>
-          </span>
-        )}
-      </p>
-    </article>
+    <div className="flex justify-end">
+      <div className="max-w-[80%] whitespace-pre-wrap break-words rounded-[16px] bg-[--color-paper-soft] px-4 py-2.5 text-[14px] leading-[1.55] text-[--color-ink] shadow-[inset_0_0_0_1px_var(--color-hair)]">
+        {text}
+      </div>
+    </div>
   );
 }
+
+function AssistantText({ text }: { text: string }) {
+  return (
+    <div className="flex justify-start">
+      <div className="max-w-[90%] whitespace-pre-wrap break-words text-[15px] leading-[1.75] text-[--color-body]">
+        {text}
+      </div>
+    </div>
+  );
+}
+
+function ThinkingText() {
+  return (
+    <div className="flex justify-start">
+      <div className="inline-flex items-center gap-2 text-[14px] text-[--color-muted]">
+        Thinking
+        <span className="inline-flex gap-1">
+          <span className="h-1 w-1 animate-pulse rounded-full bg-current" />
+          <span className="h-1 w-1 animate-pulse rounded-full bg-current [animation-delay:120ms]" />
+          <span className="h-1 w-1 animate-pulse rounded-full bg-current [animation-delay:240ms]" />
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function ErrorBubble({
+  title = "Request failed",
+  message
+}: {
+  title?: string;
+  message: string;
+}) {
+  return (
+    <div className="flex justify-start">
+      <div className="rounded-[8px] border border-[--color-alarm]/30 bg-[--color-alarm-soft] px-4 py-2.5 text-sm">
+        <div className="font-medium text-[--color-ink]">{title}</div>
+        <div className="mt-0.5 text-[--color-alarm]">{message}</div>
+      </div>
+    </div>
+  );
+}
+
+function MessageList({ messages }: { messages: AgentMessage[] }) {
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
+      <div className="mx-auto flex max-w-[680px] flex-col gap-5">
+        {messages.map((message) => (
+          <div key={message.id} className="flex flex-col gap-2">
+            {message.parts.map((part, index) => {
+              if (part.type === "error") {
+                return (
+                  <ErrorBubble
+                    key={`${message.id}-${index}`}
+                    title={part.title}
+                    message={part.message}
+                  />
+                );
+              }
+
+              if (!part.text) {
+                return <ThinkingText key={`${message.id}-${index}`} />;
+              }
+
+              if (message.role === "user") {
+                return (
+                  <UserBubble key={`${message.id}-${index}`} text={part.text} />
+                );
+              }
+
+              return (
+                <AssistantText key={`${message.id}-${index}`} text={part.text} />
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function InputBar({
+  onSend,
+  onStop,
+  status = "ready",
+  placeholder = "Ask about the current run...",
+  className,
+  value: controlledValue,
+  onChange,
+  disabled
+}: {
+  onSend?: (message: { role: "user"; content: string }) => void;
+  onStop?: () => void;
+  status?: ChatStatus;
+  placeholder?: string;
+  className?: string;
+  value?: string;
+  onChange?: (value: string) => void;
+  disabled?: boolean;
+}) {
+  const [internal, setInternal] = useState("");
+  const isControlled = controlledValue !== undefined;
+  const input = isControlled ? controlledValue : internal;
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const isStreaming = status === "streaming" || status === "submitted";
+  const hasInput = input.trim().length > 0;
+
+  const setInput = useCallback(
+    (value: string) => {
+      if (isControlled) {
+        onChange?.(value);
+      } else {
+        setInternal(value);
+      }
+    },
+    [isControlled, onChange]
+  );
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) {
+      return;
+    }
+
+    element.style.height = "0";
+    const nextHeight = Math.min(element.scrollHeight, 120);
+    element.style.height = `${nextHeight}px`;
+    element.style.overflowY = element.scrollHeight > 120 ? "auto" : "hidden";
+  }, [input]);
+
+  const submit = useCallback(() => {
+    const trimmed = input.trim();
+    if (!trimmed || isStreaming || disabled) {
+      return;
+    }
+
+    onSend?.({ role: "user", content: trimmed });
+    setInput("");
+  }, [disabled, input, isStreaming, onSend, setInput]);
+
+  return (
+    <div className={cn("w-full shrink-0 px-4 pb-4", className)}>
+      <div className="mx-auto max-w-[680px]">
+        <div
+          className="relative cursor-text rounded-[16px] border border-[--color-hair] bg-[--color-bg] shadow-[0_12px_28px_-22px_rgba(38,34,27,0.55)] transition-[border-color,box-shadow] duration-200 focus-within:border-[--color-accent]"
+          onClick={(event) => {
+            if (
+              event.target === event.currentTarget ||
+              !(event.target as HTMLElement).closest("button, textarea")
+            ) {
+              ref.current?.focus();
+            }
+          }}
+        >
+          <div className="min-h-[58px] px-3.5 pb-0 pt-3">
+            <label className="sr-only" htmlFor="advisor-message">
+              Your message
+            </label>
+            <textarea
+              ref={ref}
+              id="advisor-message"
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  submit();
+                }
+              }}
+              placeholder={placeholder}
+              disabled={disabled}
+              rows={1}
+              className={cn(
+                "w-full resize-none overflow-hidden border-0 bg-transparent text-[14px] leading-[1.6] text-[--color-ink] outline-none placeholder:text-[--color-muted]",
+                disabled && "cursor-not-allowed opacity-50"
+              )}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-3 px-2 pb-2 pt-1">
+            <p className="m-0 px-1.5 text-[11.5px] text-[--color-muted]">
+              Press Enter to send. Shift Enter for a new line.
+            </p>
+            <button
+              type="button"
+              aria-label={isStreaming ? "Stop" : "Send"}
+              onClick={() => {
+                if (isStreaming) {
+                  onStop?.();
+                } else if (hasInput) {
+                  submit();
+                }
+              }}
+              className={cn(
+                "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-[background,color,transform,opacity] duration-150 active:translate-y-px",
+                isStreaming || hasInput
+                  ? ""
+                  : "bg-[--color-paper-deep] text-[--color-muted]"
+              )}
+              style={
+                isStreaming || hasInput
+                  ? {
+                      background: "var(--color-ink)",
+                      color: "var(--color-bg)"
+                    }
+                  : undefined
+              }
+            >
+              {isStreaming ? <StopIcon /> : <SendIcon />}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const AgentChat = memo(function AgentChat({
+  messages,
+  onSend,
+  onStop,
+  status = "ready",
+  error,
+  emptyStatePosition = "default",
+  className
+}: AgentChatProps) {
+  const [draft, setDraft] = useState("");
+  const messagesWithError: AgentMessage[] = useMemo(() => {
+    if (!error) {
+      return messages;
+    }
+
+    return [
+      ...messages,
+      {
+        id: "agent-chat-error",
+        role: "assistant",
+        parts: [
+          {
+            type: "error",
+            title: error.title ?? "Request failed",
+            message: error.message
+          }
+        ]
+      }
+    ];
+  }, [error, messages]);
+
+  const isEmpty = !error && messages.length === 0;
+  const isCenteredEmpty = isEmpty && emptyStatePosition === "center";
+  const inputBarNode: ReactNode = (
+    <InputBar
+      onSend={onSend}
+      onStop={onStop}
+      status={status}
+      value={draft}
+      onChange={setDraft}
+      className={isCenteredEmpty ? "px-0 pb-0" : undefined}
+    />
+  );
+
+  return (
+    <div className={cn("flex h-full min-h-0 flex-col", className)}>
+      {isCenteredEmpty ? (
+        <div className="flex min-h-0 flex-1 items-center justify-center px-4 py-4">
+          <div className="w-full max-w-[680px]">{inputBarNode}</div>
+        </div>
+      ) : (
+        <MessageList messages={messagesWithError} />
+      )}
+      {!isCenteredEmpty && inputBarNode}
+    </div>
+  );
+});
 
 function SnapshotCell({ label, value }: { label: string; value: string }) {
   return (
