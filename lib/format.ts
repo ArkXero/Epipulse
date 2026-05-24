@@ -16,5 +16,5 @@ export function formatPercent(value: number) {
 }
 
 export function formatMultiplier(value: number) {
-  return `${value.toFixed(2)}x`;
+  return `${value.toFixed(2)}×`;
 }

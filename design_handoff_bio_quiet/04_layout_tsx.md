@@ -1,3 +1,12 @@
+# 04 — `app/layout.tsx`
+
+## Goal
+- Swap fonts: drop `Archivo_Black`, add `Inter` and `Newsreader`. Keep `IBM_Plex_Mono` for tabular numbers.
+- Rewrite the page `<title>` and `<meta description>` to match the new voice (see `10_copy_guide.md`).
+
+## Full replacement file
+
+```tsx
 import type { Metadata } from "next";
 import { Inter, IBM_Plex_Mono, Newsreader } from "next/font/google";
 import "leaflet/dist/leaflet.css";
@@ -44,3 +53,11 @@ export default function RootLayout({
     </html>
   );
 }
+```
+
+## Notes for Claude Code
+
+- The three `--font-*` CSS variables map directly to the names in `03_globals.css` (`--font-inter`, `--font-plex-mono`, `--font-newsreader`). Do not rename them.
+- `display: "swap"` keeps the page readable while the web fonts load — important because the prior config used `display` weight 400 only and would FOUT to system fonts anyway.
+- If the Next.js build complains about the Newsreader weights, install with just `["400", "500"]` — italic styles come along automatically because the Google Fonts file is variable.
+- Do NOT remove the `leaflet/dist/leaflet.css` import. The new map styling adds rules on top of Leaflet's defaults; it doesn't replace them.

@@ -10,63 +10,108 @@ import {
 } from "react-leaflet";
 import type { SimNode, SimulationDay } from "@/lib/model";
 import { formatNumber } from "@/lib/format";
-import styles from "./dashboard.module.css";
+
+const MAP_COLORS = {
+  infected: "#bb6f5d",
+  idle: "#3d7a7a",
+  closed: "#857d72",
+  ink: "#26221b",
+  breach: "#bb6f5d"
+};
 
 export function OutbreakMap({
   city,
   nodes,
   day,
   selectedNodeId,
-  onSelectNode
+  onSelectNode,
+  resetSignal
 }: {
   city: { name: string; lat: number; lng: number };
   nodes: SimNode[];
   day: SimulationDay;
   selectedNodeId: string;
   onSelectNode: (nodeId: string) => void;
+  resetSignal: number;
 }) {
   const maxInfected = Math.max(...day.nodes.map((node) => node.I), 1);
 
   return (
-    <div className={styles.mapFrame}>
+    <div className="h-[430px] w-full overflow-hidden rounded-[10px] border border-[--color-hair] max-[760px]:h-[340px]">
       <MapContainer
         center={[city.lat, city.lng]}
         zoom={11}
         scrollWheelZoom={false}
-        className={styles.map}
+        zoomControl={true}
+        className="h-full w-full"
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+          subdomains="abcd"
+          maxZoom={19}
         />
-        <MapViewSync city={city} nodes={nodes} />
+        <MapViewSync city={city} nodes={nodes} resetSignal={resetSignal} />
+
         {nodes.map((node) => {
           const state = day.nodes.find((entry) => entry.nodeId === node.id);
           const infected = state?.I ?? 0;
+          const hospitalized = state?.hospitalized ?? 0;
           const intensity = Math.min(1, infected / maxInfected);
-          const radius = 8 + intensity * 24;
+          const radius = 8 + intensity * 22;
           const selected = selectedNodeId === node.id;
+          const breached =
+            node.hospitalCapacity > 0 &&
+            hospitalized > node.hospitalCapacity * 0.85;
+          const fillColor = infected > 0 ? MAP_COLORS.infected : MAP_COLORS.idle;
 
           return (
             <CircleMarker
               key={node.id}
               center={[node.lat, node.lng]}
-              radius={selected ? radius + 4 : radius}
+              radius={selected ? radius + 3 : radius}
               pathOptions={{
-                color: selected ? "#20211d" : "#b04d3f",
-                fillColor: infected > 0 ? "#b04d3f" : "#3c647f",
-                fillOpacity: infected > 0 ? 0.28 + intensity * 0.42 : 0.22,
-                opacity: 0.9,
-                weight: selected ? 3 : 2
+                color: selected
+                  ? MAP_COLORS.ink
+                  : breached
+                    ? MAP_COLORS.breach
+                    : fillColor,
+                fillColor,
+                fillOpacity: infected > 0 ? 0.25 + intensity * 0.55 : 0.15,
+                opacity: 1,
+                weight: selected ? 2.5 : breached ? 2 : 1.2
               }}
               eventHandlers={{
                 click: () => onSelectNode(node.id)
               }}
             >
-              <Tooltip direction="top" offset={[0, -6]} opacity={1}>
-                <div className={styles.mapTooltip}>
-                  <strong>{node.name}</strong>
-                  <span>{formatNumber(infected)} infectious</span>
+              <Tooltip
+                direction="top"
+                offset={[0, -6]}
+                opacity={1}
+                className="epi-tooltip"
+              >
+                <div className="grid gap-0.5">
+                  <strong className="block text-[12.5px] font-medium text-[--color-ink]">
+                    {node.name}
+                  </strong>
+                  <span className="block text-[12px] tabular-nums text-[--color-body]">
+                    {formatNumber(infected)} infectious
+                  </span>
+                  {node.hospitalCapacity > 0 ? (
+                    <span
+                      className="block text-[11.5px] tabular-nums"
+                      style={{
+                        color: breached
+                          ? MAP_COLORS.breach
+                          : "var(--color-muted)"
+                      }}
+                    >
+                      {formatNumber(hospitalized)} /{" "}
+                      {formatNumber(node.hospitalCapacity)} beds
+                      {breached ? " · over capacity" : ""}
+                    </span>
+                  ) : null}
                 </div>
               </Tooltip>
             </CircleMarker>
@@ -79,10 +124,12 @@ export function OutbreakMap({
 
 function MapViewSync({
   city,
-  nodes
+  nodes,
+  resetSignal
 }: {
   city: { name: string; lat: number; lng: number };
   nodes: SimNode[];
+  resetSignal: number;
 }) {
   const map = useMap();
 
@@ -95,10 +142,10 @@ function MapViewSync({
     const bounds = nodes.map((node) => [node.lat, node.lng] as [number, number]);
     map.fitBounds(bounds, {
       animate: false,
-      padding: [28, 28],
+      padding: [32, 32],
       maxZoom: 12
     });
-  }, [city.lat, city.lng, map, nodes]);
+  }, [city.lat, city.lng, map, nodes, resetSignal]);
 
   return null;
 }

@@ -1,6 +1,6 @@
 import { generateObject } from "ai";
 import { NextResponse } from "next/server";
-import { fallbackScenario } from "@/lib/ai/fallbacks";
+import { fallbackScenario, hasMeaningfulDiseasePrompt } from "@/lib/ai/fallbacks";
 import { getAnthropicModel, hasAnthropicApiKey } from "@/lib/ai/provider";
 import { buildScenarioPrompt, scenarioSystemPrompt } from "@/lib/ai/prompts";
 import { normalizeScenarioForSimulation } from "@/lib/ai/scenario-normalization";
@@ -21,6 +21,10 @@ export async function POST(request: Request) {
     : undefined;
 
   if (!parsed.success || !hasAnthropicApiKey()) {
+    return NextResponse.json(fallbackScenario(prompt, fallbackPresetKey));
+  }
+
+  if (!hasMeaningfulDiseasePrompt(prompt)) {
     return NextResponse.json(fallbackScenario(prompt, fallbackPresetKey));
   }
 

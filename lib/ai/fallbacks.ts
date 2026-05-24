@@ -15,7 +15,58 @@ export function fallbackScenario(
   const promptPresetKey = getPresetKeyForPrompt(prompt);
   const presetKey = promptPresetKey ?? fallbackPresetKey ?? "denver";
 
+  if (!hasMeaningfulDiseasePrompt(prompt)) {
+    return createZeroOutbreakScenario(presetKey);
+  }
+
   return applyPromptModifiers(structuredClone(presets[presetKey]), prompt);
+}
+
+export function hasMeaningfulDiseasePrompt(prompt: string): boolean {
+  const normalizedPrompt = prompt.toLowerCase().replace(/[^a-z0-9\s-]/g, " ");
+
+  if (!normalizedPrompt.trim()) {
+    return false;
+  }
+
+  if (hasExplicitNoOutbreakLanguage(normalizedPrompt)) {
+    return false;
+  }
+
+  return [
+    "outbreak",
+    "epidemic",
+    "surge",
+    "wave",
+    "spread",
+    "spreads",
+    "virus",
+    "viral",
+    "respiratory",
+    "flu",
+    "covid",
+    "corona",
+    "infection",
+    "infectious",
+    "transmission",
+    "contagious",
+    "disease",
+    "quarantine",
+    "isolation",
+    "fever"
+  ].some((keyword) => normalizedPrompt.includes(keyword));
+}
+
+function hasExplicitNoOutbreakLanguage(prompt: string): boolean {
+  const negationPatterns = [
+    /\bno\s+(?:disease|virus|infection|outbreak|epidemic|surge|spread|wave|contagion)\b/,
+    /\bwithout\s+(?:any\s+)?(?:disease|virus|infection|outbreak|epidemic|surge|spread|wave|contagion)\b/,
+    /\bnot\s+(?:an\s+)?(?:disease|virus|infection|outbreak|epidemic|surge|spread|wave|contagion)\b/,
+    /\binfection\s+did\s+not\s+occur\b/,
+    /\b(?:disease|virus|infection|outbreak|epidemic|surge|spread|wave|contagion)\s+(?:did\s+not|didn t|never|was\s+not|wasn t)\s+(?:occur|happen|spread|start)\b/
+  ];
+
+  return negationPatterns.some((pattern) => pattern.test(prompt));
 }
 
 function applyPromptModifiers(
@@ -139,6 +190,22 @@ function getSeedTypeForPrompt(prompt: string): NodeType | null {
   }
 
   return null;
+}
+
+function createZeroOutbreakScenario(presetKey: PresetKey): ScenarioConfig {
+  const baseline = structuredClone(presets[presetKey]);
+  const seedNodeExists = baseline.nodes.some(
+    (node) => node.id === baseline.seedNodeId
+  );
+
+  return {
+    ...baseline,
+    scenario: "No disease outbreak indicated",
+    seedCases: 0,
+    seedNodeId: seedNodeExists
+      ? baseline.seedNodeId
+      : baseline.nodes[0]?.id ?? baseline.seedNodeId
+  };
 }
 
 function clamp(value: number, min: number, max: number) {

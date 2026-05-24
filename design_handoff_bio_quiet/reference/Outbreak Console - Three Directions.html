@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Epipulse — Three Aesthetic Directions</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet" />
+  <style>
+    html, body { margin: 0; height: 100%; background: #f0eee9; font-family: Inter, system-ui, sans-serif; }
+    *, *::before, *::after { box-sizing: border-box; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script src="epi-data.jsx"></script>
+  <script type="text/babel" src="design-canvas.jsx"></script>
+  <script type="text/babel" src="dashboard-clinical.jsx"></script>
+  <script type="text/babel" src="dashboard-eoc.jsx"></script>
+  <script type="text/babel" src="dashboard-bio.jsx"></script>
+
+  <script type="text/babel" data-presets="env,react">
+    const { DesignCanvas, DCSection, DCArtboard, DCPostIt } = window;
+
+    function App() {
+      return (
+        <DesignCanvas>
+          <DCSection
+            id="critique"
+            title="Honest critique"
+            subtitle="Why the current design pushes against the subject matter — and three alternatives that fit better."
+          >
+            <DCArtboard id="critique-note" label="Critique" width={760} height={820}>
+              <CritiquePanel />
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection
+            id="directions"
+            title="Three directions"
+            subtitle="Same scenario (Denver, Day 42 — peak day). Same data. Three different aesthetic systems."
+          >
+            <DCArtboard id="dir-1" label="01 · Clinical editorial" width={1440} height={1480}>
+              <window.DirectionOne />
+            </DCArtboard>
+            <DCArtboard id="dir-2" label="02 · EOC dark" width={1440} height={1340}>
+              <window.DirectionTwo />
+            </DCArtboard>
+            <DCArtboard id="dir-3" label="03 · Bio quiet — recommended" width={1440} height={1500}>
+              <window.DirectionThree />
+            </DCArtboard>
+          </DCSection>
+        </DesignCanvas>
+      );
+    }
+
+    function CritiquePanel() {
+      const P = {
+        bg: "#fbfaf5", ink: "#1f1a14", body: "#3f3a32", muted: "#7a7468", rule: "#e8e2d4",
+        accent: "#c96442", ok: "#6a9a90"
+      };
+      return (
+        <div style={{ background: P.bg, color: P.ink, padding: "44px 48px", fontFamily: "Inter, sans-serif", lineHeight: 1.55, height: "100%", overflow: "auto" }}>
+          <div style={{ fontSize: 12, color: P.accent, fontWeight: 600, letterSpacing: 0.08, textTransform: "uppercase", marginBottom: 14 }}>Designer's note</div>
+          <h1 style={{ fontFamily: "Newsreader, Georgia, serif", fontWeight: 500, fontSize: 32, letterSpacing: "-0.02em", lineHeight: 1.15, margin: "0 0 18px", maxWidth: 620 }}>
+            The brutalist skin is well-made — but it's <em>military cosplay</em>, not public health.
+          </h1>
+          <p style={{ fontSize: 15, color: P.body, margin: "0 0 24px", maxWidth: 620 }}>
+            You're right to flag it. Six specific places the current design works against the product:
+          </p>
+          <ol style={{ paddingLeft: 18, fontSize: 14, color: P.body, lineHeight: 1.65, margin: 0, display: "grid", gap: 10, maxWidth: 620 }}>
+            <li><b style={{ color: P.ink }}>Wrong vocabulary.</b> "OUTBREAK COMMAND CONSOLE," "UNIT / EP-001," "REV 2.6," hazard stripes, corner crops — these come from aviation/military, not epidemiology. Real public-health tools (CDC, WHO, JHU, Our World in Data) read clinical and restrained.</li>
+            <li><b style={{ color: P.ink }}>Red means nothing.</b> Aviation red is used as nav active, button hover, kicker text, the infected curve, and decoration. When everything's red, the "alarm" signal has nowhere to escalate.</li>
+            <li><b style={{ color: P.ink }}>The SEIR chart is starved.</b> Five compartments, but the palette only spends color on red + ink, leaving S/E/R as three indistinguishable grays. The hero chart is muddy by design.</li>
+            <li><b style={{ color: P.ink }}>The map fights itself.</b> Grayscale Leaflet tiles strip out the geographic context (water, roads, parks) that helps you read mobility, then a noise overlay adds texture over that.</li>
+            <li><b style={{ color: P.ink }}>All-caps everything.</b> Archivo Black + ALL CAPS + mono body is exhausting. Nuanced epi concepts deserve readable prose.</li>
+            <li><b style={{ color: P.ink }}>Tone overreach.</b> "The math never lies." "Run the outbreak." For an MVP this oversells, and it leans into a war metaphor public-health communicators specifically avoid.</li>
+          </ol>
+
+          <div style={{ marginTop: 28, paddingTop: 20, borderTop: `1px solid ${P.rule}` }}>
+            <div style={{ fontSize: 12, color: P.muted, fontWeight: 600, letterSpacing: 0.08, textTransform: "uppercase", marginBottom: 14 }}>What's worth keeping</div>
+            <ul style={{ paddingLeft: 18, fontSize: 13.5, color: P.body, lineHeight: 1.6, margin: 0, display: "grid", gap: 6 }}>
+              <li>Mono for tabular numbers — correct, just stop using it for body copy.</li>
+              <li>Sharp 1–2px borders, no shadow soup — keep the structural confidence.</li>
+              <li>The dashboard's layout bones — IA is solid.</li>
+              <li>Determinism as the value prop — keep it; just stop framing it like a war room.</li>
+            </ul>
+          </div>
+
+          <div style={{ marginTop: 28, paddingTop: 20, borderTop: `1px solid ${P.rule}`, background: "#f3eee0", padding: 20, borderRadius: 8, marginLeft: -8, marginRight: -8 }}>
+            <div style={{ fontSize: 12, color: P.ok, fontWeight: 600, letterSpacing: 0.08, textTransform: "uppercase", marginBottom: 10 }}>Recommendation</div>
+            <p style={{ margin: 0, fontSize: 14.5, color: P.body, lineHeight: 1.6 }}>
+              <b style={{ color: P.ink }}>Direction 03 (Bio Quiet).</b> It commits hardest to the "the math is the hero" pitch — gets out of the chart's way, gives red real meaning (only infected + breach), and reads like a research instrument instead of a war-game UI. Direction 01 is a close second if you want the product to feel published rather than operated.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
+</body>
+</html>
