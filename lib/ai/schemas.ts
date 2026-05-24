@@ -43,7 +43,7 @@ export const scenarioConfigSchema = z
     }),
     nodes: z.array(simNodeSchema).min(2).max(15),
     seedNodeId: z.string().min(2).max(48),
-    seedCases: z.number().positive().max(10_000)
+    seedCases: z.number().nonnegative().max(10_000)
   })
   .superRefine((config, context) => {
     const ids = new Set<string>();

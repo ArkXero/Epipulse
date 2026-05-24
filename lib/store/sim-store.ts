@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { AdvisorChatMessage } from "@/lib/ai/schemas";
 import {
   DEFAULT_DAYS,
   DEFAULT_INTERVENTIONS,
@@ -15,6 +16,15 @@ import type {
   SimulationDay
 } from "@/lib/model";
 
+export type AdvisorMessage = AdvisorChatMessage & { id: string };
+
+const WELCOME_ADVISOR_MESSAGE: AdvisorMessage = {
+  id: "welcome",
+  role: "assistant",
+  content:
+    "I'm reading the live Epipulse snapshot. Ask about timing, hospital load, closure tradeoffs, or which intervention to move first."
+};
+
 interface SimStore {
   config: SimulationConfig;
   timeline: SimulationDay[];
@@ -22,6 +32,14 @@ interface SimStore {
   isPlaying: boolean;
   speed: number;
   selectedNodeId: string;
+  advisorMessages: AdvisorMessage[];
+  advisorDraft: string;
+  setAdvisorMessages: (messages: AdvisorMessage[]) => void;
+  updateAdvisorMessages: (
+    updater: (messages: AdvisorMessage[]) => AdvisorMessage[]
+  ) => void;
+  setAdvisorDraft: (draft: string) => void;
+  resetAdvisorConversation: () => void;
   setPreset: (presetKey: PresetKey) => void;
   setScenario: (scenario: ScenarioConfig) => void;
   setCurrentDay: (day: number) => void;
@@ -42,6 +60,17 @@ export const useSimStore = create<SimStore>((set) => ({
   isPlaying: false,
   speed: 1,
   selectedNodeId: initialConfig.nodes[0].id,
+  advisorMessages: [WELCOME_ADVISOR_MESSAGE],
+  advisorDraft: "",
+  setAdvisorMessages: (advisorMessages) => set({ advisorMessages }),
+  updateAdvisorMessages: (updater) =>
+    set((state) => ({ advisorMessages: updater(state.advisorMessages) })),
+  setAdvisorDraft: (advisorDraft) => set({ advisorDraft }),
+  resetAdvisorConversation: () =>
+    set({
+      advisorMessages: [WELCOME_ADVISOR_MESSAGE],
+      advisorDraft: ""
+    }),
   setPreset: (presetKey) => {
     const preset = presets[presetKey];
     const config: SimulationConfig = {
@@ -55,7 +84,9 @@ export const useSimStore = create<SimStore>((set) => ({
       timeline: runSimulation(config),
       currentDay: 0,
       isPlaying: false,
-      selectedNodeId: config.nodes[0].id
+      selectedNodeId: config.nodes[0].id,
+      advisorMessages: [WELCOME_ADVISOR_MESSAGE],
+      advisorDraft: ""
     });
   },
   setScenario: (scenario) => {
@@ -70,7 +101,9 @@ export const useSimStore = create<SimStore>((set) => ({
       timeline: runSimulation(config),
       currentDay: 0,
       isPlaying: false,
-      selectedNodeId: config.nodes[0].id
+      selectedNodeId: config.nodes[0].id,
+      advisorMessages: [WELCOME_ADVISOR_MESSAGE],
+      advisorDraft: ""
     });
   },
   setCurrentDay: (day) =>

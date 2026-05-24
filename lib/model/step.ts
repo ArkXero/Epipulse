@@ -101,12 +101,20 @@ function applyLocalSeir(
     (scenario.disease.r0 / scenario.disease.infectiousDays) *
     interventions.transmissionRate *
     contactMultiplier;
+  const isZeroOutbreak =
+    scenario.seedCases === 0 &&
+    state.E === 0 &&
+    state.I === 0 &&
+    state.R === 0 &&
+    state.D === 0;
   const forceOfInfection = beta * state.S * state.I * isolationScale;
   const localExposed = clampTransition(
     forceOfInfection / livingPopulation,
     state.S
   );
-  const importExposed = getExternalImportation(node, state, interventions);
+  const importExposed = isZeroOutbreak
+    ? 0
+    : getExternalImportation(node, state, interventions);
   const totalNewExposed = clampTransition(
     localExposed + importExposed,
     state.S

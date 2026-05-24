@@ -6,13 +6,17 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Building2,
   Hospital,
+  Maximize2,
   Pause,
   Plane,
   Play,
   RotateCcw,
   School,
   Sparkles,
-  TrainFront
+  TrainFront,
+  X,
+  ZoomIn,
+  ZoomOut
 } from "lucide-react";
 import {
   Area,
@@ -32,6 +36,7 @@ import type {
   PresetKey,
   ScenarioConfig,
   SimNode,
+  SimulationDay,
   SimulationMetrics
 } from "@/lib/model";
 import {
@@ -219,7 +224,10 @@ export function DashboardShell() {
                 onSpeedChange={setSpeed}
               />
             </div>
-            <AggregateChart />
+            <div className="grid grid-cols-[220px_minmax(0,1fr)] gap-5 max-[900px]:grid-cols-1">
+              <AggregateStatsPanel current={current} />
+              <AggregateChart />
+            </div>
           </section>
 
           <section className={panelClass}>
@@ -404,8 +412,47 @@ function MetricCell({
   );
 }
 
+function AggregateStatsPanel({ current }: { current: SimulationDay }) {
+  const rows = [
+    { label: "Susceptible", value: current.aggregate.S, color: CHART.s },
+    { label: "Exposed", value: current.aggregate.E, color: CHART.e },
+    { label: "Infectious", value: current.aggregate.I, color: CHART.i },
+    { label: "Recovered", value: current.aggregate.R, color: CHART.r },
+    { label: "Deaths", value: current.aggregate.D, color: CHART.d }
+  ];
+
+  return (
+    <div className="grid content-start overflow-hidden rounded-[10px] border border-[--color-hair]">
+      {rows.map((row, index) => (
+        <div
+          key={row.label}
+          className={`grid grid-cols-[14px_1fr_auto] items-center gap-2.5 bg-[--color-bg] px-3 py-3 ${
+            index < rows.length - 1 ? "border-b border-[--color-hair]" : ""
+          }`}
+        >
+          <span
+            className="h-3 w-3 rounded-[3px]"
+            style={{ background: row.color }}
+          />
+          <span className="min-w-0 truncate text-[12.5px] text-[--color-body]">
+            {row.label}
+          </span>
+          <strong className="text-[13px] font-medium tabular-nums text-[--color-ink]">
+            {formatNumber(Math.round(row.value))}
+          </strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function AggregateChart() {
   const timeline = useSimStore((state) => state.timeline);
+  const currentDay = useSimStore((state) => state.currentDay);
+  const [zoomState, setZoomState] = useState(() => ({
+    timelineLength: timeline.length,
+    window: timeline.length
+  }));
   const data = useMemo(
     () =>
       timeline.map((day) => ({
@@ -418,6 +465,36 @@ function AggregateChart() {
       })),
     [timeline]
   );
+  const zoomWindow =
+    zoomState.timelineLength === timeline.length
+      ? zoomState.window
+      : timeline.length;
+  const visibleData = useMemo(() => {
+    const fullLength = data.length;
+
+    if (zoomWindow >= fullLength) {
+      return data;
+    }
+
+    const center = Math.max(0, Math.min(currentDay, fullLength - 1));
+    const halfWindow = Math.floor(zoomWindow / 2);
+    let start = center - halfWindow;
+    let end = start + zoomWindow - 1;
+
+    if (start < 0) {
+      start = 0;
+      end = zoomWindow - 1;
+    }
+
+    if (end >= fullLength) {
+      end = fullLength - 1;
+      start = Math.max(0, end - zoomWindow + 1);
+    }
+
+    return data.slice(start, end + 1);
+  }, [currentDay, data, zoomWindow]);
+  const minWindow = Math.max(8, Math.round(data.length * 0.12));
+  const currentDayNumber = timeline[currentDay]?.day ?? 0;
   const legendItems = [
     { label: "Susceptible", color: CHART.s },
     { label: "Exposed", color: CHART.e },
@@ -426,9 +503,31 @@ function AggregateChart() {
     { label: "Deaths", color: CHART.d, line: true }
   ];
 
+  const zoomInGraph = () => {
+    setZoomState({
+      timelineLength: data.length,
+      window: Math.max(minWindow, Math.round(zoomWindow / 2))
+    });
+  };
+
+  const zoomOutGraph = () => {
+    setZoomState({
+      timelineLength: data.length,
+      window: Math.min(data.length, zoomWindow * 2)
+    });
+  };
+
+  const resetGraphZoom = () => {
+    setZoomState({
+      timelineLength: data.length,
+      window: data.length
+    });
+  };
+
   return (
-    <div>
-      <div className="mb-4 flex flex-wrap gap-5 text-[12.5px] text-[--color-body]">
+    <div className="min-w-0">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap gap-5 text-[12.5px] text-[--color-body]">
         {legendItems.map(({ label, color, emphasized, line }) => (
           <span
             key={label}
@@ -452,11 +551,38 @@ function AggregateChart() {
             {label}
           </span>
         ))}
+        </div>
+        <div className="inline-flex items-center gap-2">
+          <button
+            className={iconButtonClass}
+            type="button"
+            aria-label="Zoom in on graph"
+            onClick={zoomInGraph}
+          >
+            <ZoomIn size={15} strokeWidth={2} />
+          </button>
+          <button
+            className={iconButtonClass}
+            type="button"
+            aria-label="Zoom out of graph"
+            onClick={zoomOutGraph}
+          >
+            <ZoomOut size={15} strokeWidth={2} />
+          </button>
+          <button
+            className={iconButtonClass}
+            type="button"
+            aria-label="Reset graph zoom"
+            onClick={resetGraphZoom}
+          >
+            <RotateCcw size={15} strokeWidth={2} />
+          </button>
+        </div>
       </div>
       <div className={chartFrameClass}>
         <ResponsiveContainer width="100%" height={360}>
           <AreaChart
-            data={data}
+            data={visibleData}
             margin={{ top: 18, right: 12, left: 0, bottom: 0 }}
           >
             <CartesianGrid
@@ -486,6 +612,11 @@ function AggregateChart() {
               contentStyle={tooltipContentStyle}
               labelStyle={tooltipLabelStyle}
               itemStyle={tooltipItemStyle}
+            />
+            <ReferenceLine
+              x={currentDayNumber}
+              stroke={CHART.accent}
+              strokeWidth={1.2}
             />
             {COMPARTMENT_ORDER.map((key) => (
               <Area
@@ -712,6 +843,10 @@ function NodeDetailPanel({ selectedNode }: { selectedNode: SimNode }) {
   const timeline = useSimStore((state) => state.timeline);
   const currentDay = useSimStore((state) => state.currentDay);
   const config = useSimStore((state) => state.config);
+  const [modalOpen, setModalOpen] = useState(false);
+  const selectedState = timeline[currentDay]?.nodes.find(
+    (node) => node.nodeId === selectedNode.id
+  );
   const data = useMemo(
     () =>
       timeline.map((day) => {
@@ -757,129 +892,368 @@ function NodeDetailPanel({ selectedNode }: { selectedNode: SimNode }) {
         "--pill-fg": "var(--color-accent)"
       };
 
+  useEffect(() => {
+    if (!modalOpen) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setModalOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [modalOpen]);
+
   return (
-    <section className={panelClass}>
-      <div className={panelHeaderClass}>
-        <div>
-          <p className={eyebrowClass}>Selected node</p>
-          <h2 className={panelTitleClass}>{selectedNode.name}</h2>
+    <>
+      <section className={panelClass}>
+        <div className={panelHeaderClass}>
+          <div>
+            <p className={eyebrowClass}>Selected node</p>
+            <h2 className={panelTitleClass}>{selectedNode.name}</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="pill" style={pillStyle}>
+              {isClosed ? "Closed" : "Open"}
+            </span>
+            <button
+              className={iconButtonClass}
+              type="button"
+              aria-label="Open node detail"
+              onClick={() => setModalOpen(true)}
+            >
+              <Maximize2 size={15} strokeWidth={2} />
+            </button>
+          </div>
         </div>
-        <span className="pill" style={pillStyle}>
-          {isClosed ? "Closed" : "Open"}
-        </span>
-      </div>
 
-      <div className="grid grid-cols-3 overflow-hidden rounded-[10px] border border-[--color-hair] max-[760px]:grid-cols-1">
-        <Stat
-          label="Peak infected"
-          value={nodeSummary.peakInfected.value}
-          detail={`Day ${nodeSummary.peakInfected.day}`}
-        />
-        <Stat
-          label="Peak hospitalized"
-          value={nodeSummary.peakHospitalized.value}
-          detail={`Day ${nodeSummary.peakHospitalized.day}`}
-        />
-        <Stat
-          label="Total deaths"
-          value={nodeSummary.finalDeaths}
-          detail={`Day ${timeline.at(-1)?.day ?? 0}`}
-        />
-      </div>
+        <div className="grid grid-cols-3 overflow-hidden rounded-[10px] border border-[--color-hair] max-[760px]:grid-cols-1">
+          <Stat
+            label="Peak infected"
+            value={nodeSummary.peakInfected.value}
+            detail={`Day ${nodeSummary.peakInfected.day}`}
+          />
+          <Stat
+            label="Peak hospitalized"
+            value={nodeSummary.peakHospitalized.value}
+            detail={`Day ${nodeSummary.peakHospitalized.day}`}
+          />
+          <Stat
+            label="Total deaths"
+            value={nodeSummary.finalDeaths}
+            detail={`Day ${timeline.at(-1)?.day ?? 0}`}
+          />
+        </div>
 
-      <div className="mt-[18px]">
-        <ResponsiveContainer width="100%" height={150}>
-          <LineChart
-            data={data}
-            margin={{ top: 8, right: 8, left: -24, bottom: 0 }}
-          >
-            <CartesianGrid
-              stroke={CHART.hair}
-              strokeDasharray="3 3"
-              vertical={false}
-            />
-            <XAxis
-              dataKey="day"
-              tickLine={false}
-              axisLine={{ stroke: CHART.hair }}
-              tick={tickStyle}
-            />
-            <YAxis
-              tickFormatter={formatCompact}
-              tickLine={false}
-              axisLine={{ stroke: CHART.hair }}
-              tick={tickStyle}
-            />
-            <Tooltip
-              formatter={(value, name) => [
-                formatNumber(Number(value ?? 0)),
-                String(name)
-              ]}
-              labelFormatter={(label) => `Day ${label}`}
-              contentStyle={tooltipContentStyle}
-              labelStyle={tooltipLabelStyle}
-              itemStyle={tooltipItemStyle}
-            />
-            {selectedNode.hospitalCapacity > 0 ? (
-              <ReferenceLine
-                y={selectedNode.hospitalCapacity}
-                stroke={CHART.alarm}
-                strokeDasharray="4 3"
-                label={{
-                  value: "capacity",
-                  fill: CHART.alarm,
-                  fontSize: 10,
-                  position: "right"
-                }}
+        <div className="mt-[18px]">
+          <ResponsiveContainer width="100%" height={150}>
+            <LineChart
+              data={data}
+              margin={{ top: 8, right: 8, left: -24, bottom: 0 }}
+            >
+              <CartesianGrid
+                stroke={CHART.hair}
+                strokeDasharray="3 3"
+                vertical={false}
               />
-            ) : null}
-            <ReferenceLine x={currentDay} stroke={CHART.accent} strokeWidth={0.8} />
-            <Line
-              type="monotone"
-              dataKey="infected"
-              stroke={CHART.i}
-              strokeWidth={1.6}
-              dot={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="hospitalized"
-              stroke={CHART.d}
-              strokeWidth={1.2}
-              dot={false}
-              strokeDasharray="4 3"
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+              <XAxis
+                dataKey="day"
+                tickLine={false}
+                axisLine={{ stroke: CHART.hair }}
+                tick={tickStyle}
+              />
+              <YAxis
+                tickFormatter={formatCompact}
+                tickLine={false}
+                axisLine={{ stroke: CHART.hair }}
+                tick={tickStyle}
+              />
+              <Tooltip
+                formatter={(value, name) => [
+                  formatNumber(Number(value ?? 0)),
+                  String(name)
+                ]}
+                labelFormatter={(label) => `Day ${label}`}
+                contentStyle={tooltipContentStyle}
+                labelStyle={tooltipLabelStyle}
+                itemStyle={tooltipItemStyle}
+              />
+              {selectedNode.hospitalCapacity > 0 ? (
+                <ReferenceLine
+                  y={selectedNode.hospitalCapacity}
+                  stroke={CHART.alarm}
+                  strokeDasharray="4 3"
+                  label={{
+                    value: "capacity",
+                    fill: CHART.alarm,
+                    fontSize: 10,
+                    position: "right"
+                  }}
+                />
+              ) : null}
+              <ReferenceLine
+                x={currentDay}
+                stroke={CHART.accent}
+                strokeWidth={0.8}
+              />
+              <Line
+                type="monotone"
+                dataKey="infected"
+                stroke={CHART.i}
+                strokeWidth={1.6}
+                dot={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="hospitalized"
+                stroke={CHART.e}
+                strokeWidth={1.2}
+                dot={false}
+                strokeDasharray="4 3"
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
 
-      <dl className="mt-3 grid grid-cols-3 overflow-hidden rounded-[10px] border border-[--color-hair] max-[760px]:grid-cols-1">
-        <div className="min-w-0 border-r border-[--color-hair] bg-[--color-paper] px-3 py-3 last:border-r-0 max-[760px]:border-r-0 max-[760px]:border-b max-[760px]:last:border-b-0">
-          <dt className="overflow-hidden text-ellipsis whitespace-nowrap text-[11.5px] text-[--color-muted]">
-            Population
-          </dt>
-          <dd className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-[14px] tabular-nums text-[--color-ink]">
-            {formatNumber(selectedNode.population)}
-          </dd>
+        <dl className="mt-3 grid grid-cols-3 overflow-hidden rounded-[10px] border border-[--color-hair] max-[760px]:grid-cols-1">
+          <div className="min-w-0 border-r border-[--color-hair] bg-[--color-paper] px-3 py-3 last:border-r-0 max-[760px]:border-r-0 max-[760px]:border-b max-[760px]:last:border-b-0">
+            <dt className="overflow-hidden text-ellipsis whitespace-nowrap text-[11.5px] text-[--color-muted]">
+              Population
+            </dt>
+            <dd className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-[14px] tabular-nums text-[--color-ink]">
+              {formatNumber(selectedNode.population)}
+            </dd>
+          </div>
+          <div className="min-w-0 border-r border-[--color-hair] bg-[--color-paper] px-3 py-3 last:border-r-0 max-[760px]:border-r-0 max-[760px]:border-b max-[760px]:last:border-b-0">
+            <dt className="overflow-hidden text-ellipsis whitespace-nowrap text-[11.5px] text-[--color-muted]">
+              Capacity
+            </dt>
+            <dd className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-[14px] tabular-nums text-[--color-ink]">
+              {formatNumber(selectedNode.hospitalCapacity)}
+            </dd>
+          </div>
+          <div className="min-w-0 border-r border-[--color-hair] bg-[--color-paper] px-3 py-3 last:border-r-0 max-[760px]:border-r-0 max-[760px]:border-b max-[760px]:last:border-b-0">
+            <dt className="overflow-hidden text-ellipsis whitespace-nowrap text-[11.5px] text-[--color-muted]">
+              Type
+            </dt>
+            <dd className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-[14px] tabular-nums text-[--color-ink]">
+              {selectedNode.type}
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      {modalOpen ? (
+        <div
+          className="fixed inset-0 z-[1100] grid place-items-center bg-[rgba(38,34,27,0.36)] px-5 py-8 backdrop-blur-[2px]"
+          onClick={() => setModalOpen(false)}
+        >
+          <div
+            className="max-h-[92vh] w-full max-w-[940px] overflow-y-auto rounded-[12px] border border-[--color-hair] bg-[--color-paper] p-6 shadow-[0_28px_80px_-34px_rgba(38,34,27,0.55)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-5 flex items-start justify-between gap-5 border-b border-[--color-hair] pb-5">
+              <div>
+                <p className={eyebrowClass}>Node detail</p>
+                <h2 className={panelTitleClass}>{selectedNode.name}</h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="pill" style={pillStyle}>
+                  {isClosed ? "Closed" : "Open"}
+                </span>
+                <button
+                  className={iconButtonClass}
+                  type="button"
+                  aria-label="Close node detail"
+                  onClick={() => setModalOpen(false)}
+                >
+                  <X size={15} strokeWidth={2} />
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 overflow-hidden rounded-[10px] border border-[--color-hair] max-[760px]:grid-cols-2 max-[520px]:grid-cols-1">
+              <ModalStat
+                label="Infectious now"
+                value={selectedState?.I ?? 0}
+                color={CHART.i}
+              />
+              <ModalStat
+                label="Hospitalized"
+                value={selectedState?.hospitalized ?? 0}
+                color={CHART.e}
+              />
+              <ModalStat
+                label="Deaths"
+                value={selectedState?.D ?? 0}
+                color={CHART.d}
+              />
+              <ModalStat
+                label="Recovered"
+                value={selectedState?.R ?? 0}
+                color={CHART.r}
+              />
+              <ModalStat
+                label="Population"
+                value={selectedNode.population}
+                color={CHART.s}
+              />
+              <ModalStat
+                label="Hospital capacity"
+                value={selectedNode.hospitalCapacity}
+                color={CHART.muted}
+              />
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-4 text-[12px] text-[--color-body]">
+              <span className="inline-flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-[--color-i]" />
+                Infectious
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-[--color-e]" />
+                Hospitalized
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <span className="h-0.5 w-3.5 bg-[--color-d]" />
+                Deaths
+              </span>
+            </div>
+
+            <div className="mt-3 h-[320px]">
+              <ResponsiveContainer width="100%" height={320}>
+                <LineChart
+                  data={data}
+                  margin={{ top: 12, right: 18, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid
+                    stroke={CHART.hair}
+                    strokeDasharray="3 3"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="day"
+                    tickLine={false}
+                    axisLine={{ stroke: CHART.hair }}
+                    tick={tickStyle}
+                  />
+                  <YAxis
+                    tickFormatter={formatCompact}
+                    tickLine={false}
+                    axisLine={{ stroke: CHART.hair }}
+                    width={56}
+                    tick={tickStyle}
+                  />
+                  <Tooltip
+                    formatter={(value, name) => [
+                      formatNumber(Number(value ?? 0)),
+                      String(name)
+                    ]}
+                    labelFormatter={(label) => `Day ${label}`}
+                    contentStyle={tooltipContentStyle}
+                    labelStyle={tooltipLabelStyle}
+                    itemStyle={tooltipItemStyle}
+                  />
+                  {selectedNode.hospitalCapacity > 0 ? (
+                    <ReferenceLine
+                      y={selectedNode.hospitalCapacity}
+                      stroke={CHART.alarm}
+                      strokeDasharray="4 3"
+                      label={{
+                        value: "capacity",
+                        fill: CHART.alarm,
+                        fontSize: 11,
+                        position: "right"
+                      }}
+                    />
+                  ) : null}
+                  <ReferenceLine
+                    x={currentDay}
+                    stroke={CHART.accent}
+                    strokeWidth={1.1}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="infected"
+                    stroke={CHART.i}
+                    strokeWidth={2.2}
+                    dot={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="hospitalized"
+                    stroke={CHART.e}
+                    strokeWidth={1.8}
+                    dot={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="deaths"
+                    stroke={CHART.d}
+                    strokeWidth={1.6}
+                    dot={false}
+                    strokeDasharray="4 3"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            <dl className="mt-5 grid grid-cols-4 overflow-hidden rounded-[10px] border border-[--color-hair] max-[760px]:grid-cols-2 max-[520px]:grid-cols-1">
+              <NodeFact label="Node type" value={selectedNode.type} />
+              <NodeFact
+                label="Location"
+                value={`${selectedNode.lat.toFixed(4)}, ${selectedNode.lng.toFixed(4)}`}
+              />
+              <NodeFact
+                label="Status"
+                value={isClosed ? "Closed by intervention" : "Open"}
+              />
+              <NodeFact label="Day viewed" value={`Day ${currentDay}`} />
+            </dl>
+          </div>
         </div>
-        <div className="min-w-0 border-r border-[--color-hair] bg-[--color-paper] px-3 py-3 last:border-r-0 max-[760px]:border-r-0 max-[760px]:border-b max-[760px]:last:border-b-0">
-          <dt className="overflow-hidden text-ellipsis whitespace-nowrap text-[11.5px] text-[--color-muted]">
-            Capacity
-          </dt>
-          <dd className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-[14px] tabular-nums text-[--color-ink]">
-            {formatNumber(selectedNode.hospitalCapacity)}
-          </dd>
-        </div>
-        <div className="min-w-0 border-r border-[--color-hair] bg-[--color-paper] px-3 py-3 last:border-r-0 max-[760px]:border-r-0 max-[760px]:border-b max-[760px]:last:border-b-0">
-          <dt className="overflow-hidden text-ellipsis whitespace-nowrap text-[11.5px] text-[--color-muted]">
-            Type
-          </dt>
-          <dd className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-[14px] tabular-nums text-[--color-ink]">
-            {selectedNode.type}
-          </dd>
-        </div>
-      </dl>
-    </section>
+      ) : null}
+    </>
+  );
+}
+
+function ModalStat({
+  label,
+  value,
+  color
+}: {
+  label: string;
+  value: number;
+  color: string;
+}) {
+  return (
+    <div className="min-w-0 border-r border-b border-[--color-hair] bg-[--color-bg] px-4 py-4 last:border-r-0 max-[520px]:border-r-0">
+      <span className="flex items-center gap-2 text-[11.5px] text-[--color-muted]">
+        <span
+          className="h-2.5 w-2.5 rounded-full"
+          style={{ background: color }}
+        />
+        {label}
+      </span>
+      <strong className="mt-1.5 block text-[22px] font-medium leading-[1] tabular-nums text-[--color-ink]">
+        {formatNumber(Math.round(value))}
+      </strong>
+    </div>
+  );
+}
+
+function NodeFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 border-r border-[--color-hair] bg-[--color-bg] px-4 py-3 last:border-r-0 max-[760px]:border-b max-[760px]:[&:nth-child(2n)]:border-r-0 max-[520px]:border-r-0">
+      <dt className="text-[11.5px] text-[--color-muted]">{label}</dt>
+      <dd className="mt-1 truncate text-[13px] tabular-nums text-[--color-ink]">
+        {value}
+      </dd>
+    </div>
   );
 }
 

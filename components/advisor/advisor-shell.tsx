@@ -11,11 +11,14 @@ import {
   type ReactNode
 } from "react";
 import { calculateMetrics } from "@/lib/model";
-import type { AdvisorChatMessage } from "@/lib/ai/schemas";
+import type {
+  SimulationConfig,
+  SimulationDay,
+  SimulationMetrics
+} from "@/lib/model";
 import { formatCompact, formatNumber } from "@/lib/format";
-import { useSimStore } from "@/lib/store/sim-store";
+import { useSimStore, type AdvisorMessage } from "@/lib/store/sim-store";
 
-type LocalMessage = AdvisorChatMessage & { id: string };
 type ChatStatus = "ready" | "streaming" | "submitted" | "idle";
 
 type MessagePart =
@@ -36,6 +39,8 @@ type AgentChatProps = {
   error?: { message: string; title?: string } | null;
   emptyStatePosition?: "default" | "center";
   className?: string;
+  draft?: string;
+  onDraftChange?: (draft: string) => void;
 };
 
 const shellClass =
@@ -99,32 +104,33 @@ const ArrowUpRightIcon = () => (
 );
 
 export function AdvisorShell() {
-  const { config, timeline, currentDay } = useSimStore();
+  const {
+    config,
+    timeline,
+    currentDay,
+    advisorMessages,
+    advisorDraft,
+    setAdvisorMessages,
+    updateAdvisorMessages,
+    setAdvisorDraft
+  } = useSimStore();
   const metrics = useMemo(
     () => calculateMetrics(timeline, config.nodes),
     [timeline, config.nodes]
   );
   const current = timeline[currentDay] ?? timeline[0];
   const abortRef = useRef<AbortController | null>(null);
-  const [messages, setMessages] = useState<LocalMessage[]>([
-    {
-      id: "welcome",
-      role: "assistant",
-      content:
-        "I'm reading the live Epipulse snapshot. Ask about timing, hospital load, closure tradeoffs, or which intervention to move first."
-    }
-  ]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const agentMessages = useMemo<AgentMessage[]>(
     () =>
-      messages.map((message) => ({
+      advisorMessages.map((message) => ({
         id: message.id,
         role: message.role,
         parts: [{ type: "text", text: message.content }]
       })),
-    [messages]
+    [advisorMessages]
   );
 
   const handleSend = useCallback(
@@ -135,22 +141,23 @@ export function AdvisorShell() {
         return;
       }
 
-      const userMessage: LocalMessage = {
+      const userMessage: AdvisorMessage = {
         id: crypto.randomUUID(),
         role: "user",
         content: trimmedInput
       };
-      const assistantMessage: LocalMessage = {
+      const assistantMessage: AdvisorMessage = {
         id: crypto.randomUUID(),
         role: "assistant",
         content: ""
       };
-      const requestMessages = [...messages, userMessage];
+      const requestMessages = [...advisorMessages, userMessage];
       const nextMessages = [...requestMessages, assistantMessage];
       const controller = new AbortController();
 
       abortRef.current = controller;
-      setMessages(nextMessages);
+      setAdvisorMessages(nextMessages);
+      setAdvisorDraft("");
       setIsStreaming(true);
       setError(null);
 
@@ -186,7 +193,7 @@ export function AdvisorShell() {
           }
 
           streamedText += decoder.decode(value, { stream: true });
-          setMessages((currentMessages) =>
+          updateAdvisorMessages((currentMessages) =>
             currentMessages.map((message) =>
               message.id === assistantMessage.id
                 ? { ...message, content: streamedText }
@@ -199,7 +206,7 @@ export function AdvisorShell() {
           sendError instanceof DOMException && sendError.name === "AbortError";
 
         if (stopped) {
-          setMessages((currentMessages) =>
+          updateAdvisorMessages((currentMessages) =>
             currentMessages.map((message) =>
               message.id === assistantMessage.id
                 ? {
@@ -213,7 +220,7 @@ export function AdvisorShell() {
         }
 
         setError("Advisor is unavailable. The local simulation state is unchanged.");
-        setMessages((currentMessages) =>
+        updateAdvisorMessages((currentMessages) =>
           currentMessages.map((message) =>
             message.id === assistantMessage.id
               ? {
@@ -229,7 +236,16 @@ export function AdvisorShell() {
         setIsStreaming(false);
       }
     },
-    [config, current, isStreaming, messages, metrics]
+    [
+      advisorMessages,
+      config,
+      current,
+      isStreaming,
+      metrics,
+      setAdvisorDraft,
+      setAdvisorMessages,
+      updateAdvisorMessages
+    ]
   );
 
   const handleStop = useCallback(() => {
@@ -315,6 +331,8 @@ export function AdvisorShell() {
                 : null
             }
             className="h-[650px]"
+            draft={advisorDraft}
+            onDraftChange={setAdvisorDraft}
           />
         </div>
 
@@ -330,6 +348,9 @@ export function AdvisorShell() {
             </Link>
           </div>
 
+          <p className="m-0 border-b border-[--color-hair] px-5 py-3 text-[12px] font-medium text-[--color-muted]">
+            Situation
+          </p>
           <dl className="m-0 p-0">
             {[
               ["Current infectious", formatNumber(current.aggregate.I)],
@@ -369,14 +390,558 @@ export function AdvisorShell() {
             ))}
           </dl>
 
+          <p className="m-0 border-y border-[--color-hair] px-5 py-3 text-[12px] font-medium text-[--color-muted]">
+            Disease profile
+          </p>
+          <dl className="m-0 p-0">
+            {[
+              ["Pathogen", config.disease.name],
+              ["R0", config.disease.r0.toFixed(1)],
+              ["Incubation", `${config.disease.incubationDays} days`],
+              ["Infectious period", `${config.disease.infectiousDays} days`],
+              ["CFR", `${(config.disease.cfr * 100).toFixed(2)}%`],
+              ["Severe cases", `${(config.disease.pSevere * 100).toFixed(1)}%`],
+              [
+                "Origin node",
+                config.nodes.find((node) => node.id === config.seedNodeId)
+                  ?.name ?? config.seedNodeId
+              ],
+              ["Seed cases", formatNumber(config.seedCases)]
+            ].map(([label, value], index, entries) => (
+              <div
+                key={label}
+                className={`flex items-baseline justify-between gap-4 px-5 py-3.5 ${
+                  index < entries.length - 1
+                    ? "border-b border-[--color-hair]"
+                    : ""
+                }`}
+              >
+                <dt className={labelTextClass}>{label}</dt>
+                <dd className="m-0 text-right text-[13.5px] font-medium tabular-nums text-[--color-ink]">
+                  {value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+
           <p className="m-0 border-t border-[--color-hair] bg-[--color-paper-soft] px-5 py-3.5 text-[12px] italic leading-[1.5] text-[--color-muted]">
             Advice is generated text. Model state changes only through the
             dashboard controls.
           </p>
         </aside>
       </section>
+
+      <section className="grid grid-cols-2 gap-6 pt-6 max-[980px]:grid-cols-1">
+        <CausesPanel config={config} current={current} />
+        <ContainmentAdvisor
+          key={`${config.scenario}-${config.seedNodeId}-${config.seedCases}`}
+          config={config}
+          timeline={timeline}
+          metrics={metrics}
+          initialDay={currentDay}
+        />
+      </section>
     </main>
   );
+}
+
+type ActionStatus = "monitoring" | "effective" | "diminishing" | "late";
+
+type ContainmentAction = {
+  name: string;
+  status: ActionStatus;
+  advice: string;
+};
+
+function CausesPanel({
+  config,
+  current
+}: {
+  config: SimulationConfig;
+  current: SimulationDay;
+}) {
+  const seedNodeName =
+    config.nodes.find((node) => node.id === config.seedNodeId)?.name ??
+    config.seedNodeId;
+  const zeroOutbreak =
+    config.seedCases === 0 &&
+    current.aggregate.E === 0 &&
+    current.aggregate.I === 0;
+  const causes = zeroOutbreak
+    ? [
+        {
+          title: "No seed infections loaded",
+          body: `${config.city.name} is running the selected disease profile with zero seed cases, so the model has no active transmission chain to propagate.`
+        },
+        {
+          title: "Importation is suppressed",
+          body: "Airport importation stays off for this intentional no-outbreak scenario, so background travel does not create cases on its own."
+        },
+        {
+          title: "Preparedness view",
+          body: `R0 ${config.disease.r0.toFixed(
+            1
+          )}, a ${config.disease.incubationDays}-day incubation period, and a ${config.disease.infectiousDays}-day infectious period remain available for planning once a seed case is introduced.`
+        },
+        {
+          title: "Monitoring priority",
+          body: "Use the run to confirm that dashboards, map state, narration, and advisor guidance handle a clean surveillance baseline."
+        }
+      ]
+    : [
+        {
+          title: `High reproduction number (R0 ${config.disease.r0.toFixed(1)})`,
+          body: `Each infectious person produces about ${config.disease.r0.toFixed(
+            1
+          )} secondary infections before recovery when controls are absent, so growth compounds quickly.`
+        },
+        {
+          title: `Silent incubation (${config.disease.incubationDays} days)`,
+          body: `Exposed people can move through the network before confirmation, which makes early detection and quarantine difficult.`
+        },
+        {
+          title: `Extended infectious window (${config.disease.infectiousDays} days)`,
+          body: `Cases remain contagious long enough for transit, schools, offices, and household contacts to overlap across roughly ${Math.round(
+            config.disease.incubationDays + config.disease.infectiousDays
+          )} days.`
+        },
+        {
+          title: `Origin at ${seedNodeName}`,
+          body: `${formatNumber(
+            config.seedCases
+          )} seed cases start in a connected node, allowing early movement to push exposure beyond the origin before the first peak is visible.`
+        },
+        {
+          title: "Respiratory transmission",
+          body: "Shared indoor air in dense settings makes population density, ventilation, and gathering duration the main environmental risk factors."
+        },
+        {
+          title: `Severe burden (${(config.disease.pSevere * 100).toFixed(
+            1
+          )}% severe, ${(config.disease.cfr * 100).toFixed(2)}% fatal)`,
+          body: "Even moderate severe-case rates strain beds when absolute case counts grow, raising the risk of capacity-driven secondary harm."
+        }
+      ];
+
+  return (
+    <article className="rounded-[12px] border border-[--color-hair] bg-[--color-paper] p-6 shadow-[0_18px_45px_-36px_rgba(38,34,27,0.5)]">
+      <p className={kickerClass}>Causes</p>
+      <h2 className="m-0 text-[20px] font-medium tracking-[-0.015em] text-[--color-ink]">
+        {zeroOutbreak
+          ? "Why this run stays quiet"
+          : `Why ${config.disease.name} accelerates`}
+      </h2>
+      <ul className="m-0 mt-5 grid list-none gap-4 p-0">
+        {causes.map((cause) => (
+          <li key={cause.title} className="grid gap-1.5">
+            <strong className="text-[13.5px] font-medium text-[--color-ink]">
+              {cause.title}
+            </strong>
+            <p className="m-0 text-[13px] leading-[1.6] text-[--color-body]">
+              {cause.body}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </article>
+  );
+}
+
+function ContainmentAdvisor({
+  config,
+  timeline,
+  metrics,
+  initialDay
+}: {
+  config: SimulationConfig;
+  timeline: SimulationDay[];
+  metrics: SimulationMetrics;
+  initialDay: number;
+}) {
+  const maxDay = Math.max(0, timeline.length - 1);
+  const [rawDay, setRawDay] = useState(() => clampIndex(initialDay, maxDay));
+  const day = clampIndex(rawDay, maxDay);
+
+  const snap = timeline[day] ?? timeline[0];
+  const disease = config.disease;
+  const seedNodeName =
+    config.nodes.find((node) => node.id === config.seedNodeId)?.name ??
+    config.seedNodeId;
+  const totalPopulation = config.nodes.reduce(
+    (sum, node) => sum + node.population,
+    0
+  );
+  const infectiousRate =
+    totalPopulation > 0 ? snap.aggregate.I / totalPopulation : 0;
+  const zeroOutbreak =
+    config.seedCases === 0 &&
+    snap.aggregate.E === 0 &&
+    snap.aggregate.I === 0;
+  const safePeakDay = Math.max(1, metrics.peakInfectedDay);
+  const phase = zeroOutbreak
+    ? "Monitoring"
+    : day < disease.incubationDays
+      ? "Early detection"
+      : day < safePeakDay * 0.55
+        ? "Growth"
+        : day < safePeakDay * 1.1
+          ? "Peak"
+          : day < safePeakDay * 1.6
+            ? "Declining"
+            : "Recovery";
+  const actions = zeroOutbreak
+    ? createMonitoringActions(config)
+    : createContainmentActions({
+        day,
+        disease,
+        infectiousRate,
+        metrics,
+        seedCases: config.seedCases,
+        seedNodeName,
+        snap
+      });
+
+  return (
+    <article className="rounded-[12px] border border-[--color-hair] bg-[--color-paper] p-6 shadow-[0_18px_45px_-36px_rgba(38,34,27,0.5)]">
+      <p className={kickerClass}>Containment</p>
+      <h2 className="m-0 text-[20px] font-medium tracking-[-0.015em] text-[--color-ink]">
+        What can still be done
+      </h2>
+
+      <div className="mt-5 rounded-[10px] border border-[--color-hair] bg-[--color-paper-soft] p-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <span
+              className="inline-flex h-7 items-center rounded-full border px-3 text-[11.5px] font-medium"
+              style={phaseStyle(phase)}
+            >
+              {phase}
+            </span>
+            <span className="text-[13px] font-medium tabular-nums text-[--color-ink]">
+              Day {day}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-3 text-[12px] text-[--color-body]">
+            <span>
+              <strong className="font-medium tabular-nums text-[--color-ink]">
+                {formatCompact(snap.aggregate.I)}
+              </strong>{" "}
+              infectious
+            </span>
+            <span>
+              <strong className="font-medium tabular-nums text-[--color-ink]">
+                {formatCompact(snap.aggregate.hospitalized)}
+              </strong>{" "}
+              hospitalized
+            </span>
+            <span>
+              <strong className="font-medium tabular-nums text-[--color-ink]">
+                {formatCompact(snap.aggregate.D)}
+              </strong>{" "}
+              deaths
+            </span>
+          </div>
+        </div>
+
+        <div className="relative mt-5 pb-8">
+          <input
+            type="range"
+            min={0}
+            max={maxDay}
+            value={day}
+            onChange={(event) => setRawDay(Number(event.target.value))}
+            className="w-full"
+            style={{ accentColor: "var(--color-accent)" }}
+            aria-label="Select containment day"
+          />
+          <div className="mt-1 flex justify-between text-[11px] text-[--color-muted]">
+            <span>Day 0</span>
+            <span>Day {maxDay}</span>
+          </div>
+          {maxDay > 0 ? (
+            <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-5 text-[10.5px] text-[--color-muted]">
+              <span
+                className="absolute -translate-x-1/2 whitespace-nowrap"
+                style={{ left: `${markerPercent(metrics.peakInfectedDay, maxDay)}%` }}
+                title={`Peak day ${metrics.peakInfectedDay}`}
+              >
+                Peak {metrics.peakInfectedDay}
+              </span>
+              {metrics.firstNodeHospitalBreachDay !== null ? (
+                <span
+                  className="absolute -translate-x-1/2 whitespace-nowrap text-[--color-alarm]"
+                  style={{
+                    left: `${markerPercent(
+                      metrics.firstNodeHospitalBreachDay,
+                      maxDay
+                    )}%`
+                  }}
+                  title={`Hospital breach day ${metrics.firstNodeHospitalBreachDay}`}
+                >
+                  Breach {metrics.firstNodeHospitalBreachDay}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      <ul className="m-0 mt-5 grid list-none gap-3 p-0">
+        {actions.map((action) => (
+          <li
+            key={action.name}
+            className="rounded-[10px] border border-[--color-hair] bg-[--color-bg] p-4"
+          >
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{ background: statusColor(action.status) }}
+              />
+              <strong className="text-[13.5px] font-medium text-[--color-ink]">
+                {action.name}
+              </strong>
+              <span className="text-[11.5px] text-[--color-muted]">
+                {statusLabel(action.status)}
+              </span>
+            </div>
+            <p className="m-0 mt-2 text-[12.5px] leading-[1.55] text-[--color-body]">
+              {action.advice}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </article>
+  );
+}
+
+function createMonitoringActions(config: SimulationConfig): ContainmentAction[] {
+  const seedNodeName =
+    config.nodes.find((node) => node.id === config.seedNodeId)?.name ??
+    config.nodes[0]?.name ??
+    config.seedNodeId;
+
+  return [
+    {
+      name: "Maintain surveillance",
+      status: "monitoring",
+      advice:
+        "No active outbreak is present. Keep syndromic and laboratory reporting online so the first imported case is visible quickly."
+    },
+    {
+      name: "Verify origin readiness",
+      status: "monitoring",
+      advice: `${seedNodeName} is the configured origin if a seed is introduced. Keep screening, isolation rooms, and escalation contacts current.`
+    },
+    {
+      name: "Avoid emergency closures",
+      status: "monitoring",
+      advice:
+        "With zero infections, broad closures and travel restrictions have no containment target. Preserve readiness without triggering outbreak-cost measures."
+    },
+    {
+      name: "Hospital surge preparation",
+      status: "monitoring",
+      advice: "No hospital breach projected. Maintain baseline staffing checks and defer surge activation until cases appear."
+    }
+  ];
+}
+
+function createContainmentActions({
+  day,
+  disease,
+  infectiousRate,
+  metrics,
+  seedCases,
+  seedNodeName,
+  snap
+}: {
+  day: number;
+  disease: SimulationConfig["disease"];
+  infectiousRate: number;
+  metrics: SimulationMetrics;
+  seedCases: number;
+  seedNodeName: string;
+  snap: SimulationDay;
+}): ContainmentAction[] {
+  const actionStatus = (
+    effective: boolean,
+    diminishing: boolean
+  ): ActionStatus => {
+    if (effective) {
+      return "effective";
+    }
+
+    if (diminishing) {
+      return "diminishing";
+    }
+
+    return "late";
+  };
+
+  return [
+    {
+      name: "Isolate origin node",
+      status: actionStatus(
+        day < disease.incubationDays,
+        day < disease.incubationDays * 2.5
+      ),
+      advice:
+        day < disease.incubationDays
+          ? `Close ${seedNodeName} now. Spread has not yet fully surfaced, so this is the highest-leverage action available.`
+          : day < disease.incubationDays * 2.5
+            ? `Partial value remains. Restrict ${seedNodeName} and test outbound contacts while community chains are forming.`
+            : "Community spread is established across multiple nodes. Origin closure is now a mitigation tool, not containment by itself."
+    },
+    {
+      name: "Contact tracing",
+      status: actionStatus(infectiousRate < 0.005, infectiousRate < 0.02),
+      advice:
+        infectiousRate < 0.005
+          ? `Case counts are manageable at ${formatCompact(
+              snap.aggregate.I
+            )} infectious. Trace aggressively while each broken chain still changes the curve.`
+          : infectiousRate < 0.02
+            ? "Tracing is becoming overloaded. Focus on transit, schools, and hospital-linked clusters instead of broad coverage."
+            : "Active chains exceed practical tracing capacity. Shift resources toward population-level isolation and exposure reduction."
+    },
+    {
+      name: "Travel restrictions",
+      status: actionStatus(
+        day < metrics.peakInfectedDay * 0.4,
+        day < metrics.peakInfectedDay * 1.1
+      ),
+      advice:
+        day < metrics.peakInfectedDay * 0.4
+          ? "High impact now. Cutting inter-node flow prevents clean districts from being seeded through transit and airport movement."
+          : day < metrics.peakInfectedDay * 1.1
+            ? `Still useful for limiting cross-node surge. Hold meaningful restrictions through Day ${metrics.peakInfectedDay}.`
+            : `Peak is past. Keep moderate restriction until infectious counts fall below ${formatCompact(
+                seedCases * 5
+              )} to reduce rebound risk.`
+    },
+    {
+      name: "School and venue closures",
+      status: actionStatus(
+        day >= Math.round(disease.incubationDays) &&
+          day < metrics.peakInfectedDay * 0.7,
+        day < metrics.peakInfectedDay * 1.15
+      ),
+      advice:
+        day < disease.incubationDays
+          ? "Prepare closure orders, but wait for confirmed community spread before triggering high-cost venue closures."
+          : day < metrics.peakInfectedDay * 0.7
+            ? `Close schools and dense venues now. Enclosed mixing is the primary amplifier at R0 ${disease.r0.toFixed(1)}.`
+            : day < metrics.peakInfectedDay * 1.15
+              ? `Closures are limiting peak height. Hold them through Day ${metrics.peakInfectedDay} before staged reopening.`
+              : `Reopen lower-risk areas first and watch for a ${Math.round(
+                  disease.incubationDays * 2
+                )}-day uptick after each step.`
+    },
+    {
+      name: "Isolation compliance",
+      status: actionStatus(
+        day < metrics.peakInfectedDay,
+        day < metrics.peakInfectedDay * 1.4
+      ),
+      advice:
+        day < metrics.peakInfectedDay
+          ? `Every 10% compliance gain cuts effective spread. Push above 70% before Day ${metrics.peakInfectedDay} to lower the peak.`
+          : day < metrics.peakInfectedDay * 1.4
+            ? `Peak has passed, but secondary waves can form within ${Math.round(
+                disease.infectiousDays * 3
+              )} days of an early lift.`
+            : "Compliance can relax gradually once daily infections continue falling and hospitals stay below capacity."
+    },
+    {
+      name: "Hospital surge preparation",
+      status: actionStatus(
+        metrics.firstNodeHospitalBreachDay !== null &&
+          day < metrics.firstNodeHospitalBreachDay - 10,
+        metrics.firstNodeHospitalBreachDay !== null &&
+          day < metrics.firstNodeHospitalBreachDay + 5
+      ),
+      advice:
+        metrics.firstNodeHospitalBreachDay === null
+          ? `No hospital breach projected. Current severe-case rate (${(
+              disease.pSevere * 100
+            ).toFixed(1)}%) stays within modeled capacity.`
+          : day < metrics.firstNodeHospitalBreachDay - 10
+            ? `Breach is projected on Day ${
+                metrics.firstNodeHospitalBreachDay
+              }. There are ${
+                metrics.firstNodeHospitalBreachDay - day
+              } days to pre-position beds, staff, and transfer paths.`
+            : day < metrics.firstNodeHospitalBreachDay + 5
+              ? `Breach is imminent or active. Activate overflow protocols for about ${formatCompact(
+                  Math.round(snap.aggregate.I * disease.pSevere)
+                )} current severe cases.`
+              : `The breach window is passing. Stand down gradually and keep a buffer through Day ${
+                  metrics.peakInfectedDay + 14
+                }.`
+    }
+  ];
+}
+
+function phaseStyle(phase: string) {
+  if (phase === "Monitoring") {
+    return {
+      background: "var(--color-paper)",
+      borderColor: "var(--color-hair)",
+      color: "var(--color-muted)"
+    };
+  }
+
+  if (phase === "Peak") {
+    return {
+      background: "var(--color-alarm-soft)",
+      borderColor: "color-mix(in srgb, var(--color-alarm) 35%, transparent)",
+      color: "var(--color-alarm)"
+    };
+  }
+
+  return {
+    background: "var(--color-accent-soft)",
+    borderColor: "color-mix(in srgb, var(--color-accent) 35%, transparent)",
+    color: "var(--color-accent)"
+  };
+}
+
+function statusLabel(status: ActionStatus) {
+  switch (status) {
+    case "monitoring":
+      return "Monitoring";
+    case "effective":
+      return "Effective";
+    case "diminishing":
+      return "Diminishing";
+    case "late":
+      return "Late-stage";
+  }
+}
+
+function statusColor(status: ActionStatus) {
+  switch (status) {
+    case "monitoring":
+      return "var(--color-muted)";
+    case "effective":
+      return "var(--color-accent)";
+    case "diminishing":
+      return "var(--color-e)";
+    case "late":
+      return "var(--color-alarm)";
+  }
+}
+
+function markerPercent(day: number, maxDay: number) {
+  if (maxDay <= 0) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(100, (day / maxDay) * 100));
+}
+
+function clampIndex(day: number, maxDay: number) {
+  return Math.max(0, Math.min(maxDay, Math.round(day)));
 }
 
 function UserBubble({ text }: { text: string }) {
@@ -611,9 +1176,13 @@ const AgentChat = memo(function AgentChat({
   status = "ready",
   error,
   emptyStatePosition = "default",
-  className
+  className,
+  draft: controlledDraft,
+  onDraftChange
 }: AgentChatProps) {
-  const [draft, setDraft] = useState("");
+  const [internalDraft, setInternalDraft] = useState("");
+  const draft = controlledDraft ?? internalDraft;
+  const setDraft = onDraftChange ?? setInternalDraft;
   const messagesWithError: AgentMessage[] = useMemo(() => {
     if (!error) {
       return messages;

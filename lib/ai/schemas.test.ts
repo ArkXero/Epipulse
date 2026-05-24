@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { denverPreset, dmvPreset, nycPreset } from "@/lib/model";
-import { fallbackScenario } from "./fallbacks";
+import { fallbackScenario, hasMeaningfulDiseasePrompt } from "./fallbacks";
 import { normalizeScenarioForSimulation } from "./scenario-normalization";
 import {
   scenarioConfigSchema,
@@ -58,10 +58,35 @@ describe("AI scenario schema", () => {
       "nyc"
     );
 
+    expect(hasMeaningfulDiseasePrompt("A severe winter wave")).toBe(true);
     expect(fallback.city.name).toBe(nycPreset.city.name);
     expect(fallback.scenario).toBe("A severe winter wave with faster transmission");
     expect(fallback.disease.r0).toBeGreaterThan(nycPreset.disease.r0);
     expect(fallback.disease.cfr).toBeGreaterThan(nycPreset.disease.cfr);
+  });
+
+  it("returns a zero-outbreak scenario for a non-outbreak prompt", () => {
+    const fallback = fallbackScenario("a", "nyc");
+
+    expect(fallback.city.name).toBe(nycPreset.city.name);
+    expect(fallback.scenario).toBe("No disease outbreak indicated");
+    expect(fallback.seedCases).toBe(0);
+  });
+
+  it("returns a zero-outbreak scenario for negated outbreak language", () => {
+    const prompt = "no outbreak occurred";
+    const fallback = fallbackScenario(prompt, "nyc");
+
+    expect(hasMeaningfulDiseasePrompt(prompt)).toBe(false);
+    expect(fallback.seedCases).toBe(0);
+  });
+
+  it("accepts zero-outbreak scenario configs", () => {
+    const result = scenarioConfigSchema.safeParse(
+      fallbackScenario("no outbreak", "nyc")
+    );
+
+    expect(result.success).toBe(true);
   });
 
   it("normalizes clinically literal AI disease inputs for outbreak demos", () => {

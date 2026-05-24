@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_INTERVENTIONS } from "./constants";
+import { denverPreset } from "./presets";
 import { runSimulation, seedInitialStates } from "./runSimulation";
 import { stepSimulationDay } from "./step";
 import type { ScenarioConfig, SimulationConfig } from "./types";
@@ -89,5 +90,21 @@ describe("stepSimulationDay", () => {
 
     expect(peak).toBeGreaterThan(infected[0] * 1.5);
     expect(infected[infected.length - 1]).toBeLessThan(peak * 0.2);
+  });
+
+  it("keeps a zero-seed airport scenario at zero cases", () => {
+    const timeline = runSimulation({
+      ...denverPreset,
+      seedCases: 0,
+      days: 10,
+      interventions: DEFAULT_INTERVENTIONS
+    });
+
+    for (const day of timeline) {
+      expect(day.aggregate.E).toBe(0);
+      expect(day.aggregate.I).toBe(0);
+      expect(day.aggregate.R).toBe(0);
+      expect(day.aggregate.D).toBe(0);
+    }
   });
 });
