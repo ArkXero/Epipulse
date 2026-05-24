@@ -56,3 +56,5 @@ npm run lint
 - `POST /api/narrate`: `{ config, day, previousDay?, metrics } -> { report }`
 - `POST /api/advisor`: streamed text response for `{ messages, config, currentDay, metrics }`
 - `POST /api/advisor/suggestions`: structured suggested intervention changes
+
+Hope you enjoy the project!
