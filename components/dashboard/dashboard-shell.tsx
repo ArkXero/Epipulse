@@ -1,12 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import type { CSSProperties, FormEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  Activity,
-  AlertTriangle,
   Building2,
-  Gauge,
   Hospital,
   Pause,
   Plane,
@@ -22,6 +20,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -29,7 +28,6 @@ import {
 } from "recharts";
 import { calculateMetrics, presets } from "@/lib/model";
 import type {
-  NodeState,
   NodeType,
   PresetKey,
   ScenarioConfig,
@@ -42,6 +40,16 @@ import {
   formatNumber,
   formatPercent
 } from "@/lib/format";
+import {
+  CHART,
+  COMPARTMENT_FILL,
+  COMPARTMENT_FILL_OPACITY,
+  COMPARTMENT_ORDER,
+  tickStyle,
+  tooltipContentStyle,
+  tooltipItemStyle,
+  tooltipLabelStyle
+} from "@/lib/ui/charts";
 import { useSimStore } from "@/lib/store/sim-store";
 import { MapPanel } from "./map-panel";
 
@@ -54,28 +62,46 @@ const presetPrompts: Record<PresetKey, string> = {
   island: "A respiratory outbreak reaches an island resort with limited hospital capacity."
 };
 
-const shellClass = "w-full max-w-[1480px] mx-auto px-6 pb-16 bg-paper max-[760px]:px-4";
-const topbarClass = "flex min-h-[60px] items-center justify-between border-b-2 border-ink py-4 max-[760px]:flex-col max-[760px]:items-start max-[760px]:gap-[14px]";
-const brandClass = "inline-flex items-center gap-[10px] font-display text-lg tracking-[-0.02em] uppercase";
-const brandMarkClass = "grid h-8 w-8 place-items-center bg-ink text-[#fffefa]";
-const navClass = "inline-flex items-center border-2 border-ink";
-const navLinkClass = "inline-flex min-h-9 items-center border-r-2 border-ink px-4 font-mono text-[11px] font-bold tracking-[0.12em] text-ink uppercase transition-colors duration-100 last:border-r-0 hover:bg-ink hover:text-[#fffefa]";
-const navLinkActiveClass = "inline-flex min-h-9 items-center border-r-2 border-ink bg-red px-4 font-mono text-[11px] font-bold tracking-[0.12em] text-[#fffefa] uppercase last:border-r-0";
-const heroClass = "grid grid-cols-[minmax(0,1fr)_minmax(360px,480px)] items-end gap-10 border-b-2 border-ink py-12 pb-8 max-[1100px]:grid-cols-1 max-[760px]:gap-[22px] max-[760px]:py-[30px] max-[760px]:pb-[22px]";
-const kickerClass = "m-0 mb-4 font-mono text-[11px] font-bold tracking-[0.14em] text-red uppercase";
+const shellClass =
+  "w-full max-w-[1480px] mx-auto px-12 pb-16 bg-[--color-bg] max-[760px]:px-5";
+const topbarClass =
+  "flex min-h-[60px] items-center justify-between border-b border-[--color-hair] py-5 max-[760px]:flex-col max-[760px]:items-start max-[760px]:gap-[14px]";
+const brandClass =
+  "inline-flex items-center gap-[10px] text-[17px] font-medium tracking-[-0.01em]";
+const brandMarkClass =
+  "grid h-7 w-7 place-items-center rounded-full bg-[--color-paper-deep] text-[--color-accent]";
+const navClass = "inline-flex items-center gap-7 text-[13.5px] text-[--color-body]";
+const navLinkClass =
+  "text-[--color-body] hover:text-[--color-ink] transition-colors";
+const navLinkActiveClass = "text-[--color-ink] font-medium";
+const heroClass =
+  "grid grid-cols-[minmax(0,1fr)_minmax(360px,440px)] items-end gap-10 border-b border-[--color-hair] py-12 max-[1100px]:grid-cols-1 max-[760px]:gap-6 max-[760px]:py-8";
+const kickerClass = "m-0 mb-3 text-[12.5px] font-medium text-[--color-accent]";
 const eyebrowClass = kickerClass;
-const subheadClass = "mt-[18px] mb-0 font-mono text-xs tracking-[0.06em] text-muted uppercase";
-const panelClass = "min-w-0 border-2 border-ink bg-panel p-5";
-const panelHeaderClass = "mb-[18px] flex items-start justify-between gap-4 border-b border-ink pb-3 max-[760px]:flex-col";
-const panelTitleClass = "m-0 font-display text-lg leading-none tracking-[-0.02em] uppercase";
-const iconButtonClass = "inline-flex h-[38px] w-[38px] items-center justify-center border-2 border-ink bg-paper font-mono font-bold tracking-[0.1em] text-ink uppercase transition-colors duration-100 hover:bg-ink hover:text-[#fffefa] disabled:cursor-not-allowed disabled:opacity-50";
-const primaryButtonClass = "inline-flex min-h-[42px] items-center justify-center gap-2 border-2 border-ink bg-ink px-4 font-mono text-xs font-bold tracking-[0.1em] text-[#fffefa] uppercase transition-colors duration-100 hover:border-red hover:bg-red disabled:cursor-not-allowed disabled:opacity-50";
-const labelTextClass = "font-mono text-[10px] font-bold tracking-[0.14em] text-ink uppercase";
-const controlClass = "w-full border-2 border-ink bg-paper font-mono text-xs text-ink";
-const inlineErrorClass = "m-0 bg-red px-[10px] py-2 font-mono text-[11px] tracking-[0.08em] text-[#fffefa] uppercase";
-const dayBadgeClass = "inline-flex h-7 items-center border-2 border-ink bg-paper-soft px-3 font-mono text-[10px] font-bold tracking-[0.14em] text-ink uppercase";
-const statusClass = "inline-flex h-7 items-center border-2 border-ink px-3 font-mono text-[10px] font-bold tracking-[0.14em] text-[#fffefa] uppercase";
-const chartFrameClass = "h-[326px]";
+const subheadClass = "mt-3 mb-0 text-[14px] text-[--color-muted]";
+const panelClass =
+  "min-w-0 rounded-[12px] border border-[--color-hair] bg-[--color-paper] p-7";
+const panelHeaderClass =
+  "mb-5 flex items-baseline justify-between gap-4 max-[760px]:flex-col max-[760px]:items-start";
+const panelTitleClass =
+  "m-0 text-[19px] font-medium tracking-[-0.015em] text-[--color-ink]";
+const iconButtonClass =
+  "inline-flex h-9 w-9 items-center justify-center rounded-[8px] border border-[--color-hair] bg-[--color-paper] text-[--color-body] hover:bg-[--color-paper-soft] hover:text-[--color-ink] transition-colors disabled:cursor-not-allowed disabled:opacity-50";
+const primaryButtonClass =
+  "inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-[--color-accent] px-4 text-[13px] font-medium text-white hover:bg-[--color-accent-deep] transition-colors disabled:cursor-not-allowed disabled:opacity-55";
+const labelTextClass = "text-[12px] font-medium text-[--color-muted]";
+const controlClass =
+  "w-full rounded-[8px] border border-[--color-hair] bg-[--color-bg] text-[13.5px] text-[--color-ink] focus:border-[--color-accent]";
+const inlineErrorClass =
+  "m-0 rounded-[6px] border border-[--color-alarm]/40 bg-[--color-alarm-soft] px-3 py-2 text-[12px] text-[--color-alarm]";
+const dayBadgeClass =
+  "inline-flex h-7 items-center rounded-full border border-[--color-hair] bg-[--color-paper] px-3 text-[11.5px] font-medium text-[--color-body]";
+const chartFrameClass = "h-[360px]";
+
+type PillStyle = CSSProperties & {
+  "--pill-bg": string;
+  "--pill-fg": string;
+};
 
 export function DashboardShell() {
   const {
@@ -125,7 +151,15 @@ export function DashboardShell() {
       <header className={topbarClass}>
         <Link href="/" className={brandClass} aria-label="Epipulse home">
           <span className={brandMarkClass}>
-            <Activity size={18} strokeWidth={2.4} />
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path
+                d="M1 7h3l1.5-3 2 6L9 7h4"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
           </span>
           <span>Epipulse</span>
         </Link>
@@ -140,15 +174,21 @@ export function DashboardShell() {
             Advisor
           </Link>
         </nav>
+        <div className="flex items-center gap-3 text-[12px] text-[--color-muted]">
+          <span className="dot" />
+          Model running
+        </div>
       </header>
 
       <section className={heroClass}>
         <div>
-          <p className={kickerClass}>Network SEIR command view</p>
+          <p className={kickerClass}>
+            {config.city.name} · Day {current.day} of {timeline.length - 1}
+          </p>
           <h1>{config.scenario}</h1>
           <p className={subheadClass}>
-            {config.city.name} · {config.disease.name} · R0{" "}
-            {config.disease.r0.toFixed(1)}
+            R₀ {config.disease.r0.toFixed(1)} · {config.nodes.length} nodes ·{" "}
+            {config.disease.name}
           </p>
         </div>
         <ScenarioPanel />
@@ -240,11 +280,16 @@ function ScenarioPanel() {
   }
 
   return (
-    <form className="grid gap-3 border-2 border-ink bg-panel p-[18px]" onSubmit={handleGenerate}>
-      <div className="grid gap-1.5">
-        <label className={labelTextClass} htmlFor="preset">Preset</label>
+    <form
+      className="grid gap-3 rounded-[12px] border border-[--color-hair] bg-[--color-paper] p-5"
+      onSubmit={handleGenerate}
+    >
+      <div>
+        <label className={`${labelTextClass} mb-1.5 block`} htmlFor="preset">
+          Preset
+        </label>
         <select
-          className={`${controlClass} h-[38px] px-[10px]`}
+          className={`${controlClass} h-10 px-3`}
           id="preset"
           value={presetKey}
           onChange={(event) => {
@@ -255,16 +300,21 @@ function ScenarioPanel() {
             setError(null);
           }}
         >
-          <option value="denver">Denver</option>
+          <option value="denver">Denver, Colorado</option>
           <option value="nyc">New York City</option>
           <option value="dmv">DC-Maryland-Virginia</option>
-          <option value="island">Island</option>
+          <option value="island">Island resort</option>
         </select>
       </div>
-      <div className="grid gap-1.5">
-        <label className={labelTextClass} htmlFor="scenario-prompt">Scenario prompt</label>
+      <div>
+        <label
+          className={`${labelTextClass} mb-1.5 block`}
+          htmlFor="scenario-prompt"
+        >
+          Prompt
+        </label>
         <textarea
-          className={`${controlClass} min-h-20 resize-y p-[10px] leading-[1.45]`}
+          className={`${controlClass} min-h-20 resize-y p-3 leading-[1.5]`}
           id="scenario-prompt"
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
@@ -277,32 +327,30 @@ function ScenarioPanel() {
         type="submit"
         disabled={status === "loading"}
       >
-        <Sparkles size={16} strokeWidth={2} />
-        {status === "loading" ? "Generating" : "Generate"}
+        {status === "loading" ? "Generating…" : "Run scenario"}
+        <span aria-hidden>→</span>
       </button>
     </form>
   );
 }
 
 function MetricsStrip({ metrics }: { metrics: SimulationMetrics }) {
-  const breachLabel =
-    metrics.firstNodeHospitalBreachDay === null
-      ? "No breach"
-      : `Day ${metrics.firstNodeHospitalBreachDay}`;
+  const hasBreach = metrics.firstNodeHospitalBreachDay !== null;
+  const breachLabel = hasBreach
+    ? `Day ${metrics.firstNodeHospitalBreachDay}`
+    : "No breach";
 
   return (
-    <section className="grid grid-cols-4 border-b-2 border-ink max-[760px]:grid-cols-1">
+    <section className="grid grid-cols-4 border-b border-[--color-hair] max-[760px]:grid-cols-1">
       <MetricCell
         label="Peak infected"
         value={formatCompact(metrics.peakInfected)}
         detail={`Day ${metrics.peakInfectedDay}`}
-        icon={<Activity size={18} strokeWidth={2} />}
       />
       <MetricCell
         label="Total deaths"
         value={formatCompact(metrics.totalDeaths)}
         detail="End of horizon"
-        icon={<AlertTriangle size={18} strokeWidth={2} />}
       />
       <MetricCell
         label="Hospital breach"
@@ -312,13 +360,12 @@ function MetricsStrip({ metrics }: { metrics: SimulationMetrics }) {
             ? metrics.firstHospitalBreachNodeId.replaceAll("-", " ")
             : "Capacity stays under load"
         }
-        icon={<Hospital size={18} strokeWidth={2} />}
+        accent={hasBreach}
       />
       <MetricCell
         label="Population"
         value={formatCompact(metrics.totalPopulation)}
         detail={`${formatCompact(metrics.finalRecovered)} recovered`}
-        icon={<Building2 size={18} strokeWidth={2} />}
       />
     </section>
   );
@@ -328,19 +375,25 @@ function MetricCell({
   label,
   value,
   detail,
-  icon
+  accent = false
 }: {
   label: string;
   value: string;
   detail: string;
-  icon: React.ReactNode;
+  accent?: boolean;
 }) {
   return (
-    <div className="relative min-w-0 border-r-2 border-ink px-[22px] py-[22px] pb-6 last:border-r-0 max-[760px]:border-r-0 max-[760px]:border-b-2 max-[760px]:last:border-b-0">
-      <div className="absolute right-[18px] top-[18px] grid h-[26px] w-[26px] place-items-center bg-red text-[#fffefa]">{icon}</div>
-      <p className="m-0 mb-3 font-mono text-[10px] font-bold tracking-[0.14em] text-muted uppercase">{label}</p>
-      <strong className="block font-display text-[clamp(1.8rem,3.5vw,2.8rem)] font-normal leading-[0.9] tracking-[-0.04em] text-ink">{value}</strong>
-      <span className="mt-2 block font-mono text-[11px] tracking-[0.06em] text-muted uppercase">{detail}</span>
+    <div className="relative min-w-0 border-r border-[--color-hair] px-7 py-7 last:border-r-0 max-[760px]:border-r-0 max-[760px]:border-b">
+      <p className="m-0 mb-3 text-[12.5px] text-[--color-muted]">{label}</p>
+      <strong
+        className="block text-[clamp(28px,3.4vw,40px)] font-normal leading-[1] tracking-[-0.025em] tabular-nums"
+        style={{ color: accent ? "var(--color-alarm)" : "var(--color-ink)" }}
+      >
+        {value}
+      </strong>
+      <span className="mt-2 block text-[12.5px] text-[--color-body]">
+        {detail}
+      </span>
     </div>
   );
 }
@@ -359,82 +412,97 @@ function AggregateChart() {
       })),
     [timeline]
   );
+  const legendItems = [
+    { label: "Susceptible", color: CHART.s },
+    { label: "Exposed", color: CHART.e },
+    { label: "Infectious", color: CHART.i, emphasized: true },
+    { label: "Recovered", color: CHART.r },
+    { label: "Deaths", color: CHART.d, line: true }
+  ];
 
   return (
-    <div className={chartFrameClass}>
-      <ResponsiveContainer width="100%" height={320}>
-        <AreaChart data={data} margin={{ top: 18, right: 12, left: 0, bottom: 0 }}>
-          <CartesianGrid stroke="#d4d0c4" strokeDasharray="2 4" vertical={false} />
-          <XAxis
-            dataKey="day"
-            tickLine={false}
-            axisLine={{ stroke: "#0a0a0a" }}
-            tick={{ fill: "#0a0a0a", fontSize: 10, fontFamily: "IBM Plex Mono, monospace" }}
-          />
-          <YAxis
-            tickFormatter={formatCompact}
-            tickLine={false}
-            axisLine={{ stroke: "#0a0a0a" }}
-            width={56}
-            tick={{ fill: "#0a0a0a", fontSize: 10, fontFamily: "IBM Plex Mono, monospace" }}
-          />
-          <Tooltip
-            formatter={(value, name) => [
-              formatNumber(Number(value ?? 0)),
-              String(name)
-            ]}
-            labelFormatter={(label) => `DAY ${label}`}
-            contentStyle={{
-              background: "#f4f4f0",
-              border: "2px solid #0a0a0a",
-              borderRadius: 0,
-              fontFamily: "IBM Plex Mono, monospace",
-              fontSize: 11,
-              textTransform: "uppercase",
-              letterSpacing: "0.06em"
+    <div>
+      <div className="mb-4 flex flex-wrap gap-5 text-[12.5px] text-[--color-body]">
+        {legendItems.map(({ label, color, emphasized, line }) => (
+          <span
+            key={label}
+            className="inline-flex items-center gap-2"
+            style={{
+              color: emphasized ? CHART.i : undefined,
+              fontWeight: emphasized ? 500 : 400
             }}
-          />
-          <Area
-            type="monotone"
-            dataKey="susceptible"
-            stackId="1"
-            stroke="#8a8780"
-            fill="#8a8780"
-            fillOpacity={0.18}
-          />
-          <Area
-            type="monotone"
-            dataKey="exposed"
-            stackId="2"
-            stroke="#4a4a45"
-            fill="#4a4a45"
-            fillOpacity={0.22}
-          />
-          <Area
-            type="monotone"
-            dataKey="infected"
-            stackId="3"
-            stroke="#e61919"
-            fill="#e61919"
-            fillOpacity={0.45}
-          />
-          <Area
-            type="monotone"
-            dataKey="recovered"
-            stackId="4"
-            stroke="#5a5a55"
-            fill="#5a5a55"
-            fillOpacity={0.18}
-          />
-          <Line
-            type="monotone"
-            dataKey="deaths"
-            stroke="#0a0a0a"
-            strokeWidth={2.5}
-            dot={false}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
+          >
+            {line ? (
+              <span
+                className="inline-block h-0.5 w-3.5"
+                style={{ background: color }}
+              />
+            ) : (
+              <span
+                className="inline-block h-3 w-3 rounded-[3px]"
+                style={{ background: color, opacity: 0.85 }}
+              />
+            )}
+            {label}
+          </span>
+        ))}
+      </div>
+      <div className={chartFrameClass}>
+        <ResponsiveContainer width="100%" height={360}>
+          <AreaChart
+            data={data}
+            margin={{ top: 18, right: 12, left: 0, bottom: 0 }}
+          >
+            <CartesianGrid
+              stroke={CHART.hair}
+              strokeDasharray="3 3"
+              vertical={false}
+            />
+            <XAxis
+              dataKey="day"
+              tickLine={false}
+              axisLine={{ stroke: CHART.hair }}
+              tick={tickStyle}
+            />
+            <YAxis
+              tickFormatter={formatCompact}
+              tickLine={false}
+              axisLine={{ stroke: CHART.hair }}
+              width={56}
+              tick={tickStyle}
+            />
+            <Tooltip
+              formatter={(value, name) => [
+                formatNumber(Number(value ?? 0)),
+                String(name)
+              ]}
+              labelFormatter={(label) => `Day ${label}`}
+              contentStyle={tooltipContentStyle}
+              labelStyle={tooltipLabelStyle}
+              itemStyle={tooltipItemStyle}
+            />
+            {COMPARTMENT_ORDER.map((key) => (
+              <Area
+                key={key}
+                type="monotone"
+                dataKey={key}
+                stackId={key}
+                stroke={key === "infected" ? COMPARTMENT_FILL[key] : "none"}
+                strokeWidth={key === "infected" ? 1.2 : 0}
+                fill={COMPARTMENT_FILL[key]}
+                fillOpacity={COMPARTMENT_FILL_OPACITY[key]}
+              />
+            ))}
+            <Line
+              type="monotone"
+              dataKey="deaths"
+              stroke={CHART.d}
+              strokeWidth={1.4}
+              dot={false}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }
@@ -457,22 +525,23 @@ function PlaybackControls({
   onSpeedChange: (speed: number) => void;
 }) {
   return (
-    <div className="grid grid-cols-[40px_minmax(160px,260px)_74px] items-center gap-2 max-[760px]:w-full max-[760px]:grid-cols-[40px_1fr_74px]">
+    <div className="grid grid-cols-[40px_minmax(160px,260px)_84px] items-center gap-3 max-[760px]:w-full max-[760px]:grid-cols-[40px_1fr_84px]">
       <button
-        className={iconButtonClass}
+        className="grid h-10 w-10 place-items-center rounded-full bg-[--color-accent] text-white transition-colors hover:bg-[--color-accent-deep]"
         type="button"
-        aria-label={isPlaying ? "Pause playback" : "Start playback"}
+        aria-label={isPlaying ? "Pause" : "Play"}
         onClick={() => onPlayingChange(!isPlaying)}
       >
         {isPlaying ? (
-          <Pause size={17} strokeWidth={2} />
+          <Pause size={15} strokeWidth={2} />
         ) : (
-          <Play size={17} strokeWidth={2} />
+          <Play size={15} strokeWidth={2} />
         )}
       </button>
       <input
-        aria-label="Current simulation day"
-        className="w-full accent-red"
+        aria-label="Current day"
+        className="w-full"
+        style={{ accentColor: "var(--color-accent)" }}
         type="range"
         min={0}
         max={maxDay}
@@ -480,14 +549,14 @@ function PlaybackControls({
         onChange={(event) => onCurrentDayChange(Number(event.target.value))}
       />
       <select
-        className={`${controlClass} h-[38px] px-[10px]`}
-        aria-label="Playback speed"
+        className={`${controlClass} h-9 px-3 text-[12.5px]`}
+        aria-label="Speed"
         value={speed}
         onChange={(event) => onSpeedChange(Number(event.target.value))}
       >
         {speedOptions.map((option) => (
           <option key={option} value={option}>
-            {option}x
+            {option}×
           </option>
         ))}
       </select>
@@ -519,55 +588,56 @@ function InterventionControls() {
       </div>
 
       <SliderControl
-        label="Transmission"
+        label="Transmission rate"
         description="1.00x is the disease baseline. Lower values reduce new exposures; higher values accelerate infections and deaths."
         value={interventions.transmissionRate}
         min={0.15}
         max={1.8}
         step={0.05}
         displayValue={formatMultiplier(interventions.transmissionRate)}
-        icon={<Gauge size={16} strokeWidth={2} />}
         onChange={(value) => setInterventions({ transmissionRate: value })}
       />
       <SliderControl
-        label="Isolation"
+        label="Isolation compliance"
         description="Percent of infectious people effectively isolated. Higher values reduce infectious travel and contacts."
         value={interventions.isolationCompliance}
         min={0}
         max={0.95}
         step={0.05}
         displayValue={formatPercent(interventions.isolationCompliance)}
-        icon={<Hospital size={16} strokeWidth={2} />}
         onChange={(value) => setInterventions({ isolationCompliance: value })}
       />
       <SliderControl
-        label="Travel"
+        label="Travel restriction"
         description="Percent reduction in movement between nodes and airport importation. Higher values usually lower spread across the region."
         value={interventions.travelRestriction}
         min={0}
         max={1}
         step={0.05}
         displayValue={formatPercent(interventions.travelRestriction)}
-        icon={<Plane size={16} strokeWidth={2} />}
         onChange={(value) => setInterventions({ travelRestriction: value })}
       />
 
-      <div className="grid gap-0 border-t border-line-hair pt-2">
+      <div className="mt-3 grid gap-1.5 border-t border-[--color-hair] pt-3">
         {config.nodes.map((node) => (
           <button
             key={node.id}
             type="button"
             className={
               closedNodeIds.has(node.id)
-                ? "grid min-h-[38px] grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-[10px] border-0 border-b border-line-hair bg-red px-[10px] py-2 text-left font-mono text-[11px] tracking-[0.08em] text-[#fffefa] uppercase transition-colors duration-100 last:border-b-0"
-                : "grid min-h-[38px] grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-[10px] border-0 border-b border-line-hair bg-transparent px-[10px] py-2 text-left font-mono text-[11px] tracking-[0.08em] text-ink uppercase transition-colors duration-100 last:border-b-0 hover:bg-paper-soft"
+                ? "flex items-center justify-between rounded-[8px] border border-[--color-ink] bg-[--color-ink] px-3 py-2.5 text-left text-[13px] text-[--color-bg] transition-colors"
+                : "flex items-center justify-between rounded-[8px] border border-[--color-hair] bg-transparent px-3 py-2.5 text-left text-[13px] text-[--color-body] transition-colors hover:bg-[--color-paper-soft]"
             }
             onClick={() => toggleNodeClosed(node.id)}
           >
-            {getNodeIcon(node.type, 15)}
-            <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{node.name}</span>
-            <span className="font-mono text-[9px] font-bold tracking-[0.12em]">
-              {closedNodeIds.has(node.id) ? "CLOSED" : "OPEN"}
+            <span className="flex min-w-0 items-center gap-2.5">
+              <span className="text-[--color-muted]">
+                {getNodeIcon(node.type, 14)}
+              </span>
+              <span className="truncate">{node.name}</span>
+            </span>
+            <span className="ml-3 shrink-0 text-[11px] opacity-80">
+              {closedNodeIds.has(node.id) ? "closed" : "open"}
             </span>
           </button>
         ))}
@@ -584,7 +654,6 @@ function SliderControl({
   max,
   step,
   displayValue,
-  icon,
   onChange
 }: {
   label: string;
@@ -594,21 +663,24 @@ function SliderControl({
   max: number;
   step: number;
   displayValue: string;
-  icon: React.ReactNode;
   onChange: (value: number) => void;
 }) {
   return (
-    <label className="mb-5 grid gap-2 border-b border-line-hair pb-4 font-mono text-[10px] font-bold tracking-[0.14em] text-ink uppercase last-of-type:border-b-0">
+    <label className="mb-5 grid gap-2 border-b border-[--color-hair] pb-4 last-of-type:border-b-0">
       <span className="flex items-center justify-between gap-3">
-        <span className="inline-flex items-center gap-2 text-ink">
-          {icon}
+        <span className="text-[13.5px] font-medium text-[--color-ink]">
           {label}
         </span>
-        <strong className="font-mono text-[13px] font-bold tracking-[0.04em] text-red">{displayValue}</strong>
+        <strong className="text-[13.5px] font-medium tabular-nums text-[--color-accent]">
+          {displayValue}
+        </strong>
       </span>
-      <span className="block max-w-[36rem] font-mono text-[11px] font-normal leading-[1.5] tracking-normal text-muted normal-case">{description}</span>
+      <span className="block max-w-[36rem] text-[12px] leading-[1.5] text-[--color-muted]">
+        {description}
+      </span>
       <input
-        className="w-full accent-red"
+        className="w-full"
+        style={{ accentColor: "var(--color-accent)" }}
         type="range"
         min={min}
         max={max}
@@ -622,6 +694,7 @@ function SliderControl({
 
 function NodeDetailPanel({ selectedNode }: { selectedNode: SimNode }) {
   const timeline = useSimStore((state) => state.timeline);
+  const currentDay = useSimStore((state) => state.currentDay);
   const config = useSimStore((state) => state.config);
   const data = useMemo(
     () =>
@@ -658,6 +731,15 @@ function NodeDetailPanel({ selectedNode }: { selectedNode: SimNode }) {
     );
   }, [data]);
   const isClosed = config.interventions.closedNodeIds.includes(selectedNode.id);
+  const pillStyle: PillStyle = isClosed
+    ? {
+        "--pill-bg": "var(--color-alarm-soft)",
+        "--pill-fg": "var(--color-alarm)"
+      }
+    : {
+        "--pill-bg": "var(--color-accent-soft)",
+        "--pill-fg": "var(--color-accent)"
+      };
 
   return (
     <section className={panelClass}>
@@ -666,12 +748,12 @@ function NodeDetailPanel({ selectedNode }: { selectedNode: SimNode }) {
           <p className={eyebrowClass}>Selected node</p>
           <h2 className={panelTitleClass}>{selectedNode.name}</h2>
         </div>
-        <div className={isClosed ? `${statusClass} border-red bg-red` : `${statusClass} bg-ink`}>
+        <span className="pill" style={pillStyle}>
           {isClosed ? "Closed" : "Open"}
-        </div>
+        </span>
       </div>
 
-      <div className="grid grid-cols-3 border-2 border-ink max-[760px]:grid-cols-1">
+      <div className="grid grid-cols-3 overflow-hidden rounded-[10px] border border-[--color-hair] max-[760px]:grid-cols-1">
         <Stat
           label="Peak infected"
           value={nodeSummary.peakInfected.value}
@@ -691,66 +773,94 @@ function NodeDetailPanel({ selectedNode }: { selectedNode: SimNode }) {
 
       <div className="mt-[18px]">
         <ResponsiveContainer width="100%" height={150}>
-          <LineChart data={data} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
+          <LineChart
+            data={data}
+            margin={{ top: 8, right: 8, left: -24, bottom: 0 }}
+          >
+            <CartesianGrid
+              stroke={CHART.hair}
+              strokeDasharray="3 3"
+              vertical={false}
+            />
             <XAxis
               dataKey="day"
               tickLine={false}
-              axisLine={{ stroke: "#0a0a0a" }}
-              tick={{ fill: "#0a0a0a", fontSize: 10, fontFamily: "IBM Plex Mono, monospace" }}
+              axisLine={{ stroke: CHART.hair }}
+              tick={tickStyle}
             />
             <YAxis
               tickFormatter={formatCompact}
               tickLine={false}
-              axisLine={{ stroke: "#0a0a0a" }}
-              tick={{ fill: "#0a0a0a", fontSize: 10, fontFamily: "IBM Plex Mono, monospace" }}
+              axisLine={{ stroke: CHART.hair }}
+              tick={tickStyle}
             />
             <Tooltip
               formatter={(value, name) => [
                 formatNumber(Number(value ?? 0)),
                 String(name)
               ]}
-              labelFormatter={(label) => `DAY ${label}`}
-              contentStyle={{
-                background: "#f4f4f0",
-                border: "2px solid #0a0a0a",
-                borderRadius: 0,
-                fontFamily: "IBM Plex Mono, monospace",
-                fontSize: 11,
-                textTransform: "uppercase",
-                letterSpacing: "0.06em"
-              }}
+              labelFormatter={(label) => `Day ${label}`}
+              contentStyle={tooltipContentStyle}
+              labelStyle={tooltipLabelStyle}
+              itemStyle={tooltipItemStyle}
             />
+            {selectedNode.hospitalCapacity > 0 ? (
+              <ReferenceLine
+                y={selectedNode.hospitalCapacity}
+                stroke={CHART.alarm}
+                strokeDasharray="4 3"
+                label={{
+                  value: "capacity",
+                  fill: CHART.alarm,
+                  fontSize: 10,
+                  position: "right"
+                }}
+              />
+            ) : null}
+            <ReferenceLine x={currentDay} stroke={CHART.accent} strokeWidth={0.8} />
             <Line
               type="monotone"
               dataKey="infected"
-              stroke="#e61919"
-              strokeWidth={2.5}
+              stroke={CHART.i}
+              strokeWidth={1.6}
               dot={false}
             />
             <Line
               type="monotone"
               dataKey="hospitalized"
-              stroke="#0a0a0a"
-              strokeWidth={2}
+              stroke={CHART.d}
+              strokeWidth={1.2}
               dot={false}
-              strokeDasharray="4 4"
+              strokeDasharray="4 3"
             />
           </LineChart>
         </ResponsiveContainer>
       </div>
 
-      <dl className="mt-3 grid grid-cols-3 border-2 border-ink max-[760px]:grid-cols-1">
-        <div className="min-w-0 border-r border-ink bg-panel px-3 py-[10px] last:border-r-0 max-[760px]:border-r-0 max-[760px]:border-b max-[760px]:last:border-b-0">
-          <dt className={`${labelTextClass} overflow-hidden text-ellipsis whitespace-nowrap`}>Population</dt>
-          <dd className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs font-bold tracking-[0.04em] text-ink uppercase">{formatNumber(selectedNode.population)}</dd>
+      <dl className="mt-3 grid grid-cols-3 overflow-hidden rounded-[10px] border border-[--color-hair] max-[760px]:grid-cols-1">
+        <div className="min-w-0 border-r border-[--color-hair] bg-[--color-paper] px-3 py-3 last:border-r-0 max-[760px]:border-r-0 max-[760px]:border-b max-[760px]:last:border-b-0">
+          <dt className="overflow-hidden text-ellipsis whitespace-nowrap text-[11.5px] text-[--color-muted]">
+            Population
+          </dt>
+          <dd className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-[14px] tabular-nums text-[--color-ink]">
+            {formatNumber(selectedNode.population)}
+          </dd>
         </div>
-        <div className="min-w-0 border-r border-ink bg-panel px-3 py-[10px] last:border-r-0 max-[760px]:border-r-0 max-[760px]:border-b max-[760px]:last:border-b-0">
-          <dt className={`${labelTextClass} overflow-hidden text-ellipsis whitespace-nowrap`}>Capacity</dt>
-          <dd className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs font-bold tracking-[0.04em] text-ink uppercase">{formatNumber(selectedNode.hospitalCapacity)}</dd>
+        <div className="min-w-0 border-r border-[--color-hair] bg-[--color-paper] px-3 py-3 last:border-r-0 max-[760px]:border-r-0 max-[760px]:border-b max-[760px]:last:border-b-0">
+          <dt className="overflow-hidden text-ellipsis whitespace-nowrap text-[11.5px] text-[--color-muted]">
+            Capacity
+          </dt>
+          <dd className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-[14px] tabular-nums text-[--color-ink]">
+            {formatNumber(selectedNode.hospitalCapacity)}
+          </dd>
         </div>
-        <div className="min-w-0 border-r border-ink bg-panel px-3 py-[10px] last:border-r-0 max-[760px]:border-r-0 max-[760px]:border-b max-[760px]:last:border-b-0">
-          <dt className={`${labelTextClass} overflow-hidden text-ellipsis whitespace-nowrap`}>Type</dt>
-          <dd className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap font-mono text-xs font-bold tracking-[0.04em] text-ink uppercase">{selectedNode.type}</dd>
+        <div className="min-w-0 border-r border-[--color-hair] bg-[--color-paper] px-3 py-3 last:border-r-0 max-[760px]:border-r-0 max-[760px]:border-b max-[760px]:last:border-b-0">
+          <dt className="overflow-hidden text-ellipsis whitespace-nowrap text-[11.5px] text-[--color-muted]">
+            Type
+          </dt>
+          <dd className="mt-1 overflow-hidden text-ellipsis whitespace-nowrap text-[14px] tabular-nums text-[--color-ink]">
+            {selectedNode.type}
+          </dd>
         </div>
       </dl>
     </section>
@@ -767,10 +877,14 @@ function Stat({
   detail: string;
 }) {
   return (
-    <div className="min-w-0 border-r border-ink bg-panel p-3 last:border-r-0 max-[760px]:border-r-0 max-[760px]:border-b max-[760px]:last:border-b-0">
-      <span className={labelTextClass}>{label}</span>
-      <strong className="mt-1.5 block font-display text-lg font-normal leading-[0.95] tracking-[-0.03em] text-red">{formatCompact(value)}</strong>
-      <small className="mt-1 block font-mono text-[10px] tracking-[0.08em] text-muted uppercase">{detail}</small>
+    <div className="min-w-0 border-r border-[--color-hair] bg-[--color-paper] p-3 last:border-r-0 max-[760px]:border-r-0 max-[760px]:border-b max-[760px]:last:border-b-0">
+      <span className="text-[11.5px] text-[--color-muted]">{label}</span>
+      <strong className="mt-1 block text-[20px] font-medium leading-[1] tabular-nums text-[--color-ink]">
+        {formatCompact(value)}
+      </strong>
+      <small className="mt-1 block text-[11px] text-[--color-muted]">
+        {detail}
+      </small>
     </div>
   );
 }
@@ -819,23 +933,29 @@ function NarrationPanel({ metrics }: { metrics: SimulationMetrics }) {
   }
 
   return (
-    <section className={panelClass}>
+    <section
+      className={panelClass}
+      style={{
+        background: "var(--color-accent-soft)",
+        borderColor: "color-mix(in srgb, var(--color-accent) 25%, transparent)"
+      }}
+    >
       <div className={panelHeaderClass}>
         <div>
-          <p className={eyebrowClass}>Incident note</p>
-          <h2 className={panelTitleClass}>Explain this</h2>
+          <p className={eyebrowClass}>Today</p>
+          <h2 className={panelTitleClass}>Today&apos;s note</h2>
         </div>
         <button
           className={iconButtonClass}
           type="button"
-          aria-label="Generate incident note"
+          aria-label="Regenerate note"
           disabled={status === "loading"}
           onClick={requestNarration}
         >
-          <Sparkles size={16} strokeWidth={2} />
+          <Sparkles size={15} strokeWidth={1.6} />
         </button>
       </div>
-      <p className="m-0 border-l-4 border-red bg-paper-soft p-3 font-mono text-xs leading-[1.6] text-ink">
+      <p className="m-0 text-[13.5px] leading-[1.6] text-[--color-body]">
         {report ||
           `Day ${current.day}: ${formatNumber(
             current.aggregate.I
