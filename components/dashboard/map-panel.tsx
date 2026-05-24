@@ -8,7 +8,7 @@ const OutbreakMap = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="grid h-[430px] w-full place-items-center overflow-hidden border-2 border-ink bg-paper-soft font-mono text-[11px] tracking-[0.12em] text-muted uppercase max-[760px]:h-[340px]">
+      <div className="grid h-[430px] w-full place-items-center overflow-hidden rounded-[10px] border border-[--color-hair] bg-[--color-paper-soft] text-[13px] text-[--color-muted] max-[760px]:h-[340px]">
         Loading map
       </div>
     )
