@@ -1,24 +1,34 @@
 import type { Metadata } from "next";
-import { Archivo_Black, IBM_Plex_Mono } from "next/font/google";
+import { Inter, IBM_Plex_Mono, Newsreader } from "next/font/google";
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
 
-const displayFont = Archivo_Black({
-  variable: "--font-display",
-  weight: "400",
-  subsets: ["latin"]
+const inter = Inter({
+  variable: "--font-inter",
+  weight: ["400", "500", "600"],
+  subsets: ["latin"],
+  display: "swap"
 });
 
-const monoFont = IBM_Plex_Mono({
-  variable: "--font-mono",
-  weight: ["400", "500", "600", "700"],
-  subsets: ["latin"]
+const plexMono = IBM_Plex_Mono({
+  variable: "--font-plex-mono",
+  weight: ["400", "500"],
+  subsets: ["latin"],
+  display: "swap"
+});
+
+const newsreader = Newsreader({
+  variable: "--font-newsreader",
+  weight: ["400", "500"],
+  style: ["normal", "italic"],
+  subsets: ["latin"],
+  display: "swap"
 });
 
 export const metadata: Metadata = {
-  title: "EPIPULSE / NETWORK SEIR COMMAND",
+  title: "Epipulse — outbreak simulation",
   description:
-    "Deterministic city-scale outbreak telemetry. Network SEIR simulation, intervention planning, and live advisor briefings."
+    "A deterministic, browser-based SEIR simulator for city-scale outbreaks. Move interventions, watch hospital capacity, ask the advisor."
 };
 
 export default function RootLayout({
@@ -26,7 +36,9 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${displayFont.variable} ${monoFont.variable}`}>
+      <body
+        className={`${inter.variable} ${plexMono.variable} ${newsreader.variable}`}
+      >
         {children}
       </body>
     </html>
